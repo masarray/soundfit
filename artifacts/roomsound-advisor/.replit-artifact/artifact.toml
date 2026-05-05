@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "RoomSound Advisor"
+version = "1.0.0"
+id = "artifacts/roomsound-advisor"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24823
+
+[services.development]
+run = "pnpm --filter @workspace/roomsound-advisor run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/roomsound-advisor", "run", "build" ]
+publicDir = "artifacts/roomsound-advisor/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24823"
+BASE_PATH = "/"
