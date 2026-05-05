@@ -130,6 +130,17 @@ function safeNumber(value: string, fallback: number): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
+function SoundFitLogoMark({ className = 'h-10 w-10' }: { className?: string }) {
+  return (
+    <img
+      src={`${import.meta.env.BASE_URL}brand/soundfit-mark.svg`}
+      alt="SoundFit"
+      className={`${className} rounded-2xl shadow-lg shadow-slate-950/10`}
+      draggable={false}
+    />
+  );
+}
+
 function getNeedGuidance(condition: ProjectCondition): string {
   const map: Record<ProjectCondition, string> = {
     new_system: 'Baik. Untuk sistem baru, fokus kita adalah coverage merata, vokal jelas, dan risiko feedback rendah sejak awal.',
@@ -315,9 +326,7 @@ function LandingView({ onStart }: { onStart: () => void }) {
     <section className="mx-auto flex min-h-[100dvh] w-full max-w-6xl flex-col px-4 pb-28 pt-8 sm:px-6 lg:px-8">
       <header className="flex items-center justify-between rounded-full border border-white/70 bg-white/55 px-4 py-3 shadow-sm backdrop-blur-2xl">
         <div className="flex items-center gap-3">
-          <div className="grid h-10 w-10 place-items-center rounded-2xl bg-gradient-to-br from-blue-600 to-emerald-400 text-white shadow-lg shadow-blue-500/25">
-            <Volume2 className="h-5 w-5" />
-          </div>
+          <SoundFitLogoMark />
           <div>
             <div className="text-sm font-black tracking-tight">SoundFit</div>
             <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Room Sound Planning Assistant</div>
@@ -420,9 +429,7 @@ function WizardView({ data, updateData, step, setStep, onNext, onPrev, onReset }
       <header className="sf-wizard-header sticky top-2 z-40 rounded-[1.75rem] border border-white/70 bg-white/60 p-3 shadow-lg shadow-blue-950/5 backdrop-blur-2xl sm:top-3">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-3 px-2">
-            <div className="grid h-10 w-10 place-items-center rounded-2xl bg-gradient-to-br from-blue-600 to-emerald-400 text-white shadow-lg shadow-blue-500/25">
-              <Volume2 className="h-5 w-5" />
-            </div>
+            <SoundFitLogoMark />
             <div>
               <div className="font-black tracking-tight">SoundFit</div>
               <div className="text-xs font-semibold text-slate-500">{progress}% guided plan</div>
@@ -819,9 +826,7 @@ function ResultView({ data, result, onEdit, onRestart }: { data: WizardData; res
       <header className="mb-6 rounded-[2rem] border border-white/70 bg-white/60 p-4 shadow-lg shadow-blue-950/5 backdrop-blur-2xl">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
-            <div className="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-blue-600 to-emerald-400 text-white shadow-lg shadow-blue-500/25">
-              <CheckCircle2 className="h-5 w-5" />
-            </div>
+            <SoundFitLogoMark className="h-11 w-11" />
             <div>
               <div className="text-sm font-black text-blue-700">SoundFit Recommendation</div>
               <h1 className="text-2xl font-black tracking-tight text-slate-950">Rekomendasi layout speaker awal</h1>

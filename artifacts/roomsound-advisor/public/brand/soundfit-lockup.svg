@@ -1,0 +1,26 @@
+<svg width="820" height="220" viewBox="0 0 820 220" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="SoundFit">
+  <defs>
+    <linearGradient id="sf-bg" x1="18" y1="18" x2="190" y2="200" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#102033"/>
+      <stop offset="1" stop-color="#050A12"/>
+    </linearGradient>
+    <linearGradient id="sf-aqua" x1="41" y1="55" x2="169" y2="174" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7AF8DF"/>
+      <stop offset="0.48" stop-color="#22D3EE"/>
+      <stop offset="1" stop-color="#2563EB"/>
+    </linearGradient>
+  </defs>
+  <rect x="18" y="18" width="184" height="184" rx="46" fill="url(#sf-bg)"/>
+  <circle cx="110" cy="110" r="62" stroke="#1E3A5F" stroke-width="7"/>
+  <path d="M59 130a55 55 0 0 1 0-40" stroke="url(#sf-aqua)" stroke-width="8" stroke-linecap="round"/>
+  <path d="M161 90a55 55 0 0 1 0 40" stroke="url(#sf-aqua)" stroke-width="8" stroke-linecap="round"/>
+  <path d="M76 84c23-25 45-25 68 0" stroke="#6EE7D8" stroke-width="8" stroke-linecap="round"/>
+  <path d="M87 96c16-17 31-17 47 0" stroke="#BFF8EF" stroke-width="8" stroke-linecap="round"/>
+  <rect x="74" y="115" width="17" height="32" rx="5" fill="url(#sf-aqua)"/>
+  <rect x="101" y="98" width="18" height="49" rx="5" fill="url(#sf-aqua)"/>
+  <rect x="129" y="114" width="17" height="33" rx="5" fill="url(#sf-aqua)"/>
+  <path d="M70 134c26 25 55 25 80 0" stroke="#1B5C8F" stroke-width="6" stroke-linecap="round"/>
+  <path d="M83 149h54" stroke="#EAF3FF" stroke-width="5" stroke-linecap="round" opacity="0.72"/>
+  <text x="238" y="135" fill="#07111F" font-family="Inter, Manrope, Avenir Next, sans-serif" font-size="88" font-weight="800" letter-spacing="-5">SoundFit</text>
+  <text x="243" y="170" fill="#64748B" font-family="Inter, Manrope, Avenir Next, sans-serif" font-size="20" font-weight="700" letter-spacing="4">ROOM SOUND PLANNING</text>
+</svg>
