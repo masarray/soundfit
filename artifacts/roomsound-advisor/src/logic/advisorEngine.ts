@@ -600,8 +600,14 @@ export interface AmpRequirements {
   speakersPerChannel: number;
   channelCount: number;
   totalImpedanceOhm: number;
+  estimatedCableM: number;
+  systemKind: '100v_line' | 'low_impedance' | 'performance_pa';
+  systemLabel: string;
+  recommendedAmpType: string;
+  recommended100VTotalW?: number;
   wiringDesc: string;
   ampConfig: string;
+  decisionReason: string;
   notes: string[];
 }
 
@@ -616,13 +622,15 @@ export interface AmpRequirements {
  * @param impedanceOhm    Speaker nominal impedance in ohm (4 | 8 | 16)
  * @param headroomDb      Amplifier headroom in dB above average programme (6 | 10)
  * @param useCase         Room use case (affects target SPL)
+ * @param data            User room data for cable and 100V-vs-low-impedance decision
  */
 export function calcAmpRequirements(
   result: AdvisoryResult,
   sensitivityDb: number,
   impedanceOhm: number,
   headroomDb: number,
-  useCase: UseCase
+  useCase: UseCase,
+  data: WizardData
 ): AmpRequirements {
   // ── Target SPL at listening position (dB SPL) ──────────────────────────────
   // Based on ITU-R BS.1116, IEC 60268-16 recommendations for venue types
@@ -677,10 +685,55 @@ export function calcAmpRequirements(
     ? `1 unit amplifier stereo ${recommendedAmpWPerChannel}W/ch`
     : `${stereoUnits} unit amplifier stereo ${recommendedAmpWPerChannel}W/ch (${channelCount} channel total)`;
 
+  const estimatedCableM = Math.ceil((data.roomLengthM + data.roomWidthM * 0.5) * 1.25);
+  const hasExtraZone = result.wing1SpeakerCount > 0 || result.wing2SpeakerCount > 0;
+  const isPerformancePA = useCase === 'live_music' || useCase === 'worship_music';
+  const isDistributedUse = useCase === 'paging' || useCase === 'background_music' || data.venueType === 'retail' || data.venueType === 'outdoor';
+  const shouldUse100V = !isPerformancePA && (result.speakerCount >= 6 || estimatedCableM > 25 || hasExtraZone || isDistributedUse);
+  const tapOptions = [3, 6, 10, 15, 30, 60];
+  const recommendedTapW = tapOptions.find((w) => w >= Math.max(3, requiredPowerPerSpeakerW * 1.8)) ?? 60;
+  const total100VLoadW = Math.ceil(result.speakerCount * recommendedTapW);
+  const total100VStandards = [60, 120, 240, 360, 480, 600, 1000];
+  const recommended100VTotalW = total100VStandards.find((w) => w >= total100VLoadW * 1.25) ?? Math.ceil((total100VLoadW * 1.25) / 100) * 100;
+  const systemKind: AmpRequirements['systemKind'] = isPerformancePA
+    ? 'performance_pa'
+    : shouldUse100V
+      ? '100v_line'
+      : 'low_impedance';
+  const systemLabel = systemKind === '100v_line'
+    ? '100V line system'
+    : systemKind === 'performance_pa'
+      ? 'Performance PA'
+      : 'Low impedance 4-8 ohm';
+  const recommendedAmpType = systemKind === '100v_line'
+    ? `Mixer amplifier 100V line minimal ${recommended100VTotalW}W total, idealnya dengan output zona`
+    : systemKind === 'performance_pa'
+      ? `${ampConfig} atau active PA set dengan mixer kecil, EQ, dan proteksi limiter`
+      : ampConfig;
+  const decisionReason = systemKind === '100v_line'
+    ? 'Dipilih karena speaker tersebar, kabel relatif panjang, paging/BGM, atau ada zona tambahan. Untuk user awam, 100V line lebih aman karena wiring paralel lebih sederhana dan tidak mudah salah hitung impedansi.'
+    : systemKind === 'performance_pa'
+      ? 'Dipilih karena kebutuhan musik/ibadah musik butuh headroom dinamis dan kontrol mixer lebih baik daripada distributed 100V biasa.'
+      : 'Dipilih karena jumlah speaker masih sedikit dan kabel relatif pendek, sehingga sistem 4-8 ohm masih sederhana selama impedansi amplifier sesuai.';
+  const advisoryWiringDesc = systemKind === '100v_line'
+    ? `Speaker diparalel pada jalur 100V. Total tap speaker approx. ${total100VLoadW}W, amplifier disarankan minimal ${recommended100VTotalW}W`
+    : systemKind === 'performance_pa'
+      ? `${wiringDesc}; untuk active PA, ikuti konfigurasi output mixer dan input speaker aktif`
+      : wiringDesc;
+
   // ── Advisory notes ────────────────────────────────────────────────────────
   const notes: string[] = [];
-  if (result.speakerCount > 8) {
-    notes.push("Dengan jumlah speaker >= 8 unit, pertimbangkan sistem 100V line (constant voltage) - lebih mudah dikabelkan tanpa menghitung impedansi paralel.");
+  notes.push(decisionReason);
+  notes.push(`Estimasi kabel terjauh dari amplifier ke speaker terakhir: approx. ${estimatedCableM} m. Tempatkan amplifier di area operator yang kering, berventilasi, dan mudah dijangkau.`);
+  if (systemKind === '100v_line') {
+    notes.push(`Gunakan tap speaker sekitar ${recommendedTapW}W per speaker sebagai titik awal, lalu total beban diberi headroom ke amplifier ${recommended100VTotalW}W.`);
+    notes.push("Pilih amplifier dengan input mic, line input, tone control/EQ sederhana, proteksi panas, dan output zona jika ruangan punya serambi atau area paging.");
+  }
+  if (systemKind === 'low_impedance') {
+    notes.push(`Pastikan amplifier mendukung beban minimum ${totalImpedanceOhm} ohm dan jangan menambah speaker paralel tanpa hitung impedansi ulang.`);
+  }
+  if (systemKind === 'performance_pa') {
+    notes.push("Untuk musik, prioritaskan mixer, EQ, gain staging, dan headroom. Jangan samakan kebutuhan musik dengan paging 100V biasa.");
   }
   if (headroomDb === 10) {
     notes.push("Headroom 10 dB (standar profesional) artinya amplifier hanya bekerja di 10% kapasitas saat level normal - umur komponen jauh lebih panjang.");
@@ -694,7 +747,6 @@ export function calcAmpRequirements(
   if (result.wing1SpeakerCount > 0 || result.wing2SpeakerCount > 0) {
     notes.push(`Speaker serambi (${result.wing1SpeakerCount + result.wing2SpeakerCount} unit) sebaiknya menggunakan amplifier terpisah agar volume tiap zona bisa diatur sendiri.`);
   }
-  notes.push(`Pastikan amplifier Anda mendukung beban impedansi minimum ${totalImpedanceOhm} ohm sebelum pembelian.`);
 
   return {
     targetSplDb,
@@ -704,8 +756,14 @@ export function calcAmpRequirements(
     speakersPerChannel,
     channelCount,
     totalImpedanceOhm,
-    wiringDesc,
+    estimatedCableM,
+    systemKind,
+    systemLabel,
+    recommendedAmpType,
+    recommended100VTotalW: systemKind === '100v_line' ? recommended100VTotalW : undefined,
+    wiringDesc: advisoryWiringDesc,
     ampConfig,
+    decisionReason,
     notes,
   };
 }

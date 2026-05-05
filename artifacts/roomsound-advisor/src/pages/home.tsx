@@ -792,14 +792,20 @@ function StickyActionBar({ step, onPrev, onNext, onReset, data }: {
 function ResultView({ data, result, onEdit, onRestart }: { data: WizardData; result: AdvisoryResult; onEdit: () => void; onRestart: () => void }) {
   const tips = getSmartTips(data, result);
   const [copied, setCopied] = useState(false);
-  const amp = calcAmpRequirements(result, 90, 8, data.useCase === 'live_music' || data.useCase === 'worship_music' ? 10 : 6, data.useCase);
+  const amp = calcAmpRequirements(result, 90, 8, data.useCase === 'live_music' || data.useCase === 'worship_music' ? 10 : 6, data.useCase, data);
 
   const shareText = [
-    'SoundFit Recommendation',
-    result.executiveSummary,
-    `Speaker: ${result.speakerCount} unit`,
-    `Layout: ${result.layoutDescription}`,
-    `Tinggi: approx. ${result.mountHeightM.toFixed(1)}m`,
+    result.proposalText,
+    '',
+    'Saran Amplifier dan Kabel:',
+    `- Sistem kabel      : ${amp.systemLabel}`,
+    `- Rekomendasi amp   : ${amp.recommendedAmpType}`,
+    `- Estimasi kabel    : approx. ${amp.estimatedCableM} m dari amplifier ke speaker terjauh`,
+    `- Target SPL awal   : ${amp.targetSplDb} dB`,
+    `- Catatan wiring    : ${amp.wiringDesc}`,
+    '',
+    'Catatan SoundFit:',
+    ...amp.notes.slice(0, 5).map((note) => `- ${note}`),
   ].join('\n');
 
   const copy = async () => {
@@ -847,7 +853,7 @@ function ResultView({ data, result, onEdit, onRestart }: { data: WizardData; res
           <RiskMeter result={result} />
 
           <SimulationPanel data={data} result={result} />
-          <AmplifierPanel data={data} result={result} amp={amp} />
+          <AmplifierPanel amp={amp} />
 
           <InfoBlock title="Kenapa layout ini dipilih?" icon={Lightbulb} items={result.reasons.length ? result.reasons : [result.executiveSummary]} />
           <InfoBlock title="Tips pemasangan speaker" icon={Zap} items={tips} />
@@ -1152,22 +1158,8 @@ function SideViewInstallation({ data, result }: { data: WizardData; result: Advi
   );
 }
 
-function AmplifierPanel({ data, result, amp }: { data: WizardData; result: AdvisoryResult; amp: ReturnType<typeof calcAmpRequirements> }) {
-  const estimatedCableM = Math.ceil((data.roomLengthM + data.roomWidthM * 0.5) * 1.25);
-  const shouldUse100V = result.speakerCount >= 6 || estimatedCableM > 25 || data.venueType === 'outdoor' || result.wing1SpeakerCount + result.wing2SpeakerCount > 0;
-  const systemLabel = shouldUse100V ? '100V line system' : 'Low impedance 4-8 ohm';
-  const ampType = shouldUse100V
-    ? `Mixer amplifier 100V line minimal ${Math.max(120, Math.ceil((result.speakerCount * amp.requiredPowerPerSpeakerW * 1.5) / 10) * 10)}W total`
-    : amp.ampConfig;
-
-  const notes = [
-    shouldUse100V
-      ? 'Untuk user awam, 100V line lebih aman jika speaker banyak, kabel jauh, atau area dibagi beberapa zona karena wiring lebih sederhana dan impedansi tidak mudah salah.'
-      : 'Untuk ruangan kecil dengan sedikit speaker dan kabel pendek, sistem 4-8 ohm masih masuk akal selama impedansi total amplifier sesuai.',
-    `Estimasi kabel terjauh dari amplifier ke speaker terakhir: approx. ${estimatedCableM} m. Tempatkan amplifier di area operator yang kering, berventilasi, dan mudah dijangkau.`,
-    'Pilih amplifier dengan input mic, line input, tone control/EQ sederhana, proteksi panas, dan output zona jika ruangan punya area serambi atau paging.',
-    ...amp.notes,
-  ];
+function AmplifierPanel({ amp }: { amp: ReturnType<typeof calcAmpRequirements> }) {
+  const show100VLoad = amp.systemKind === '100v_line' && amp.recommended100VTotalW;
 
   return (
     <Card className="sf-glass-card">
@@ -1178,21 +1170,23 @@ function AmplifierPanel({ data, result, amp }: { data: WizardData; result: Advis
             <h3 className="text-2xl font-black tracking-tight text-slate-950">Saran amplifier untuk user awam</h3>
             <p className="mt-1 max-w-2xl text-sm font-semibold leading-6 text-slate-600">Estimasi awal watt, channel, sistem kabel, dan kapan sebaiknya memakai 100V line.</p>
           </div>
-          <Badge className="w-fit rounded-full bg-emerald-500/10 px-3 py-1 text-emerald-700 hover:bg-emerald-500/10">{systemLabel}</Badge>
+          <Badge className="w-fit rounded-full bg-emerald-500/10 px-3 py-1 text-emerald-700 hover:bg-emerald-500/10">{amp.systemLabel}</Badge>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Metric label="Target SPL" value={`${amp.targetSplDb} dB`} />
-          <Metric label="Amp" value={`${amp.recommendedAmpWPerChannel}W/ch`} />
+          <Metric label="Amp" value={show100VLoad ? `${amp.recommended100VTotalW}W total` : `${amp.recommendedAmpWPerChannel}W/ch`} />
           <Metric label="Channel" value={`${amp.channelCount}`} />
-          <Metric label="Kabel" value={`${estimatedCableM}m`} />
+          <Metric label="Kabel" value={`${amp.estimatedCableM}m`} />
         </div>
         <div className="rounded-[1.6rem] border border-emerald-200 bg-emerald-50/80 p-4">
           <div className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">Rekomendasi tipe</div>
-          <p className="mt-2 text-lg font-black leading-7 text-emerald-950">{ampType}</p>
-          <p className="mt-2 text-sm font-semibold leading-6 text-emerald-800">{amp.wiringDesc}. Beban minimum: {amp.totalImpedanceOhm} ohm.</p>
+          <p className="mt-2 text-lg font-black leading-7 text-emerald-950">{amp.recommendedAmpType}</p>
+          <p className="mt-2 text-sm font-semibold leading-6 text-emerald-800">
+            {amp.wiringDesc}{amp.systemKind === 'low_impedance' ? `. Beban minimum: ${amp.totalImpedanceOhm} ohm.` : '.'}
+          </p>
         </div>
         <div className="grid gap-3 md:grid-cols-2">
-          {notes.slice(0, 6).map((note) => (
+          {amp.notes.slice(0, 6).map((note) => (
             <div key={note} className="flex gap-3 rounded-2xl border border-white/70 bg-white/60 p-4 text-sm font-semibold leading-6 text-slate-700 shadow-sm">
               <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
               <span>{note}</span>
