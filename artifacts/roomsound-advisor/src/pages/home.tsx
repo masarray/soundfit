@@ -135,7 +135,7 @@ function safeNumber(value: string, fallback: number): number {
 function SoundFitLogoMark({ className = 'h-10 w-10' }: { className?: string }) {
   return (
     <img
-      src={`${import.meta.env.BASE_URL}brand/soundfit-mark.svg`}
+      src={`${import.meta.env.BASE_URL}pwa-192.png`}
       alt="SoundFit"
       className={`${className} rounded-2xl shadow-lg shadow-slate-950/10`}
       draggable={false}
@@ -906,7 +906,7 @@ function PrintableProposal({ data, result, amp }: { data: WizardData; result: Ad
     <article className="sf-print-proposal" aria-label="SoundFit printable proposal">
       <header className="sf-print-header">
         <div className="sf-print-brand">
-          <img src={`${import.meta.env.BASE_URL}brand/soundfit-mark.svg`} alt="" />
+          <img src={`${import.meta.env.BASE_URL}pwa-192.png`} alt="" />
           <div>
             <div className="sf-print-kicker">SoundFit Room Sound Planning Assistant</div>
             <h1>Rekomendasi Awal Sistem Speaker Ruangan</h1>
