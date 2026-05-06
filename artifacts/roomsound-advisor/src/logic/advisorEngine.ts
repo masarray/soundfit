@@ -409,16 +409,22 @@ export function generateAdvisoryResult(data: WizardData): AdvisoryResult {
 
   const frontOffsetM = roomLengthM / (rowCount * 2 + 1);
   const rowSpacingM = (roomLengthM - frontOffsetM * 2) / Math.max(rowCount - 1, 1);
+  const sideOffsetM = mainHallSpeakerCount > 1
+    ? Math.min(Math.max(roomWidthM * 0.18, 0.9), roomWidthM * 0.28)
+    : roomWidthM / 2;
+  const leftXPercent = mainHallSpeakerCount > 1 ? (sideOffsetM / roomWidthM) * 100 : 50;
+  const rightXPercent = 100 - leftXPercent;
 
   const speakerPositions: SpeakerPosition[] = [];
   for (let i = 0; i < rowCount; i++) {
-    const yPercent = 15 + (i * 70 / Math.max(rowCount - 1, 1));
+    const rowM = frontOffsetM + (rowCount > 1 ? i * rowSpacingM : roomLengthM * 0.5);
+    const yPercent = Math.max(12, Math.min(88, (rowM / roomLengthM) * 100));
     let zone: 'front' | 'middle' | 'rear' = 'middle';
     if (i === 0) zone = 'front';
     else if (i === rowCount - 1 && rowCount > 1) zone = 'rear';
-    speakerPositions.push({ id: `S${i * 2 + 1}`, side: 'left', zone, xPercent: 3, yPercent });
+    speakerPositions.push({ id: `S${i * 2 + 1}`, side: 'left', zone, xPercent: leftXPercent, yPercent });
     if (mainHallSpeakerCount > 1) {
-      speakerPositions.push({ id: `S${i * 2 + 2}`, side: 'right', zone, xPercent: 97, yPercent });
+      speakerPositions.push({ id: `S${i * 2 + 2}`, side: 'right', zone, xPercent: rightXPercent, yPercent });
     }
   }
 

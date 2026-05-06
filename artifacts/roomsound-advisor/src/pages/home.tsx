@@ -5,6 +5,7 @@ import {
   BookOpen,
   Check,
   CheckCircle2,
+  ChevronDown,
   Home as HomeIcon,
   Info,
   Lightbulb,
@@ -44,6 +45,7 @@ const STEP_COUNT = 5;
 
 type ViewState = 'landing' | 'wizard' | 'result';
 type StepKey = 'need' | 'room' | 'problem' | 'solution' | 'review';
+type ResultTab = 'summary' | 'layout' | 'products' | 'install' | 'risk' | 'export';
 type OptionIcon = React.ComponentType<{ className?: string }>;
 
 type Option<T extends string> = {
@@ -798,6 +800,7 @@ function StickyActionBar({ step, onPrev, onNext, onReset, data }: {
 
 function ResultView({ data, result, onEdit, onRestart }: { data: WizardData; result: AdvisoryResult; onEdit: () => void; onRestart: () => void }) {
   const tips = getSmartTips(data, result);
+  const [activeTab, setActiveTab] = useState<ResultTab>('summary');
   const amp = calcAmpRequirements(result, 90, 8, data.useCase === 'live_music' || data.useCase === 'worship_music' ? 10 : 6, data.useCase, data);
 
   const exportPdf = () => {
@@ -837,23 +840,15 @@ function ResultView({ data, result, onEdit, onRestart }: { data: WizardData; res
             <Metric label="Arah" value={result.mountTiltDeg < 90 ? `${result.mountTiltDeg} deg down` : 'ceiling'} />
           </div>
 
-          <ResultInsightPanel result={result} />
-          <RiskMeter result={result} />
-
-          <SimulationPanel data={data} result={result} />
-          <AmplifierPanel amp={amp} />
-          <ProductRecommendationPanel result={result} />
-          <ExportProposalPanel result={result} amp={amp} onExportPdf={exportPdf} />
-
-          <InfoBlock title="Kenapa layout ini dipilih?" icon={Lightbulb} items={result.reasons.length ? result.reasons : [result.executiveSummary]} />
-          <InfoBlock title="Tips pemasangan speaker" icon={Zap} items={tips} />
-          <InfoBlock title="Ilmu tambahan untuk panitia" icon={BookOpen} items={result.smartInsight.educationalNotes} />
-          <InfoBlock title="Kesalahan umum yang perlu dihindari" icon={Info} items={[
-            'Jangan menaikkan volume depan terlalu besar hanya untuk mengejar suara belakang.',
-            'Jangan arahkan speaker langsung ke area mic utama.',
-            'Jangan memasang speaker terlalu tinggi jika bracket tidak bisa menunduk.',
-            'Jangan menambah terlalu banyak speaker tanpa pengaturan arah dan level yang jelas.',
-          ]} />
+          <MobileResultWorkspace
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            data={data}
+            result={result}
+            amp={amp}
+            tips={tips}
+            onExportPdf={exportPdf}
+          />
         </section>
 
         <aside className="space-y-4">
@@ -894,7 +889,290 @@ function ResultView({ data, result, onEdit, onRestart }: { data: WizardData; res
           <button className="sf-action-button secondary" onClick={onRestart} type="button"><RotateCcw className="h-4 w-4" /> Reset</button>
         </div>
       </div>
+
+      <PrintableProposal data={data} result={result} amp={amp} />
     </div>
+  );
+}
+
+function PrintableProposal({ data, result, amp }: { data: WizardData; result: AdvisoryResult; amp: ReturnType<typeof calcAmpRequirements> }) {
+  const rec = result.productRecommendation;
+  const warnings = [
+    ...result.warnings,
+    ...rec.warnings,
+  ].slice(0, 6);
+
+  return (
+    <article className="sf-print-proposal" aria-label="SoundFit printable proposal">
+      <header className="sf-print-header">
+        <div className="sf-print-brand">
+          <img src={`${import.meta.env.BASE_URL}brand/soundfit-mark.svg`} alt="" />
+          <div>
+            <div className="sf-print-kicker">SoundFit Room Sound Planning Assistant</div>
+            <h1>Rekomendasi Awal Sistem Speaker Ruangan</h1>
+          </div>
+        </div>
+        <div className="sf-print-date">
+          <span>Draft proposal</span>
+          <strong>{new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })}</strong>
+        </div>
+      </header>
+
+      <section className="sf-print-hero">
+        <div>
+          <div className="sf-print-kicker">Ringkasan keputusan</div>
+          <h2>{result.speakerCount} speaker - {result.layoutDescription}</h2>
+          <p>{result.executiveSummary}</p>
+        </div>
+        <div className="sf-print-budget">
+          <span>Estimasi hardware utama</span>
+          <strong>{formatIdr(rec.cost.mainHardwareMin)} - {formatIdr(rec.cost.mainHardwareMax)}</strong>
+          <small>{rec.cost.systemBudgetTier.toUpperCase()} solution level</small>
+        </div>
+      </section>
+
+      <section className="sf-print-grid">
+        <PrintBox label="Tempat" value={data.venueType === 'mosque' ? 'Masjid / Mushola' : data.venueType} />
+        <PrintBox label="Ukuran" value={`${data.roomLengthM} m x ${data.roomWidthM} m x ${data.ceilingHeightM} m`} />
+        <PrintBox label="Luas total" value={`${result.totalAreaM2.toFixed(0)} m2`} />
+        <PrintBox label="Fungsi utama" value={data.useCase.replaceAll('_', ' ')} />
+        <PrintBox label="Mode solusi" value={data.solutionMode} />
+        <PrintBox label="Tinggi speaker" value={`${result.mountHeightM.toFixed(1)} m, tilt ${result.mountTiltDeg < 90 ? `${result.mountTiltDeg} deg` : 'ceiling down'}`} />
+      </section>
+
+      <section className="sf-print-section">
+        <h3>Rekomendasi Produk</h3>
+        <table>
+          <tbody>
+            <tr>
+              <th>Speaker</th>
+              <td>{rec.speakerQuantity} pcs {rec.speaker.brand} {rec.speaker.model} @ {rec.selectedTapW}W tap</td>
+            </tr>
+            <tr>
+              <th>Amplifier</th>
+              <td>{rec.amplifier.brand} {rec.amplifier.model} {rec.amplifier.ratedOutputW}W, 100V/70V/low impedance capable</td>
+            </tr>
+            <tr>
+              <th>Total load 100V</th>
+              <td>Approx. {rec.totalSpeakerLoadW}W, target amplifier minimum {rec.requiredAmplifierW}W dengan headroom planning.</td>
+            </tr>
+            <tr>
+              <th>Wiring</th>
+              <td>{amp.systemLabel}. {amp.wiringDesc} Estimasi kabel terjauh approx. {amp.estimatedCableM} m.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section className="sf-print-section two-col">
+        <div>
+          <h3>Alasan Rekomendasi</h3>
+          <ul>
+            {[...result.reasons, ...rec.reasons].slice(0, 7).map((reason) => <li key={reason}>{reason}</li>)}
+          </ul>
+        </div>
+        <div>
+          <h3>Catatan Instalasi</h3>
+          <ul>
+            {result.installationNotes.slice(0, 6).map((note) => <li key={note}>{note}</li>)}
+          </ul>
+        </div>
+      </section>
+
+      <section className="sf-print-section">
+        <h3>Estimasi Biaya dan Batasan</h3>
+        <table>
+          <tbody>
+            <tr>
+              <th>Speaker subtotal</th>
+              <td>{formatIdr(rec.cost.speakerSubtotalMin)} - {formatIdr(rec.cost.speakerSubtotalMax)}</td>
+            </tr>
+            <tr>
+              <th>Amplifier subtotal</th>
+              <td>{formatIdr(rec.cost.amplifierSubtotalMin)} - {formatIdr(rec.cost.amplifierSubtotalMax)}</td>
+            </tr>
+            <tr>
+              <th>Belum termasuk</th>
+              <td>{rec.cost.excludedItems.join(', ')}.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      {warnings.length > 0 && (
+        <section className="sf-print-section warning">
+          <h3>Catatan Risiko</h3>
+          <ul>
+            {warnings.map((warning) => <li key={warning}>{warning}</li>)}
+          </ul>
+        </section>
+      )}
+
+      <footer className="sf-print-footer">
+        Rekomendasi ini adalah estimasi awal berbasis input user. Survei lapangan, pengecekan posisi mic, material ruangan, jalur kabel, dan validasi harga vendor tetap diperlukan sebelum pembelian.
+      </footer>
+    </article>
+  );
+}
+
+function PrintBox({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="sf-print-box">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function MobileResultWorkspace({
+  activeTab,
+  setActiveTab,
+  data,
+  result,
+  amp,
+  tips,
+  onExportPdf,
+}: {
+  activeTab: ResultTab;
+  setActiveTab: (tab: ResultTab) => void;
+  data: WizardData;
+  result: AdvisoryResult;
+  amp: ReturnType<typeof calcAmpRequirements>;
+  tips: string[];
+  onExportPdf: () => void;
+}) {
+  const tabs: Array<{ key: ResultTab; label: string; icon: OptionIcon }> = [
+    { key: 'summary', label: 'Ringkasan', icon: Sparkles },
+    { key: 'layout', label: 'Layout', icon: Map },
+    { key: 'products', label: 'Produk', icon: Store },
+    { key: 'install', label: 'Instalasi', icon: Zap },
+    { key: 'risk', label: 'Risiko', icon: SlidersHorizontal },
+    { key: 'export', label: 'PDF', icon: FileDown },
+  ];
+
+  return (
+    <div className="space-y-5">
+      <div className="sticky top-2 z-30 rounded-[1.6rem] border border-white/70 bg-white/80 p-2 shadow-lg shadow-blue-950/8 backdrop-blur-2xl">
+        <div className="sf-result-tabs" role="tablist" aria-label="Result workspace">
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab.key}
+              className={`sf-result-tab ${activeTab === tab.key ? 'is-active' : ''}`}
+              onClick={() => setActiveTab(tab.key)}
+            >
+              <tab.icon className="h-4 w-4" />
+              <span>{tab.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {activeTab === 'summary' && (
+        <div className="space-y-4">
+          <ProductMiniSummary result={result} />
+          <CollapsiblePanel title="Smart diagnosis" icon={Sparkles} defaultOpen>
+            <ResultInsightPanel result={result} />
+          </CollapsiblePanel>
+          <CollapsiblePanel title="Kenapa layout ini dipilih?" icon={Lightbulb}>
+            <InfoBlock title="Alasan utama" icon={Lightbulb} items={result.reasons.length ? result.reasons : [result.executiveSummary]} />
+          </CollapsiblePanel>
+        </div>
+      )}
+
+      {activeTab === 'layout' && (
+        <div className="space-y-4">
+          <SimulationPanel data={data} result={result} />
+          <CollapsiblePanel title="Anotasi layout" icon={Info} defaultOpen>
+            <InfoBlock title="Catatan visual" icon={Info} items={[
+              'Posisi speaker memakai offset dari dinding agar coverage lebih merata dan area tengah tidak terlalu kosong.',
+              `Jarak baris speaker approx. ${result.rowSpacingM.toFixed(1)} m, dihitung dari panjang ruangan dan jumlah baris.`,
+              'Heatmap visual adalah estimasi coverage awal, bukan simulasi SPL presisi.',
+            ]} />
+          </CollapsiblePanel>
+        </div>
+      )}
+
+      {activeTab === 'products' && (
+        <div className="space-y-4">
+          <ProductRecommendationPanel result={result} />
+          <CollapsiblePanel title="Amplifier and wiring details" icon={Zap}>
+            <AmplifierPanel amp={amp} />
+          </CollapsiblePanel>
+        </div>
+      )}
+
+      {activeTab === 'install' && (
+        <div className="space-y-4">
+          <CollapsiblePanel title="Tips pemasangan speaker" icon={Zap} defaultOpen>
+            <InfoBlock title="Tips pemasangan speaker" icon={Zap} items={tips} />
+          </CollapsiblePanel>
+          <CollapsiblePanel title="Ilmu tambahan untuk panitia" icon={BookOpen}>
+            <InfoBlock title="Ilmu tambahan untuk panitia" icon={BookOpen} items={result.smartInsight.educationalNotes} />
+          </CollapsiblePanel>
+          <CollapsiblePanel title="Kesalahan umum" icon={Info}>
+            <InfoBlock title="Kesalahan umum yang perlu dihindari" icon={Info} items={[
+              'Jangan menaikkan volume depan terlalu besar hanya untuk mengejar suara belakang.',
+              'Jangan arahkan speaker langsung ke area mic utama.',
+              'Jangan memasang speaker terlalu tinggi jika bracket tidak bisa menunduk.',
+              'Jangan menambah terlalu banyak speaker tanpa pengaturan arah dan level yang jelas.',
+            ]} />
+          </CollapsiblePanel>
+        </div>
+      )}
+
+      {activeTab === 'risk' && (
+        <div className="space-y-4">
+          <RiskMeter result={result} />
+          <CollapsiblePanel title="Catatan aman" icon={Info} defaultOpen>
+            <InfoBlock title="Catatan aman" icon={Info} items={result.warnings.length ? result.warnings : ['Rekomendasi ini adalah tahap awal. Kondisi lapangan, posisi mic, material ruangan, dan kualitas speaker tetap perlu dicek.']} />
+          </CollapsiblePanel>
+        </div>
+      )}
+
+      {activeTab === 'export' && (
+        <div className="space-y-4">
+          <ExportProposalPanel result={result} amp={amp} onExportPdf={onExportPdf} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProductMiniSummary({ result }: { result: AdvisoryResult }) {
+  const rec = result.productRecommendation;
+  return (
+    <Card className="sf-glass-card">
+      <CardContent className="space-y-4 p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-sm font-black text-blue-700">Keputusan utama</div>
+            <h3 className="mt-1 text-2xl font-black tracking-tight text-slate-950">{rec.speakerQuantity} speaker + {rec.amplifier.model}</h3>
+            <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{rec.summary}</p>
+          </div>
+          <Badge className="rounded-full bg-emerald-500/10 px-3 py-1 text-emerald-700 hover:bg-emerald-500/10">{rec.cost.systemBudgetTier}</Badge>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Metric label="Speaker" value={`${rec.speaker.brand} ${rec.speaker.model}`} />
+          <Metric label="Load 100V" value={`${rec.totalSpeakerLoadW}W`} />
+          <Metric label="Hardware" value={formatIdr(rec.cost.mainHardwareTypical)} />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function CollapsiblePanel({ title, icon: Icon, defaultOpen = false, children }: { title: string; icon: OptionIcon; defaultOpen?: boolean; children: React.ReactNode }) {
+  return (
+    <details className="sf-collapse" open={defaultOpen}>
+      <summary>
+        <span className="sf-collapse-title"><Icon className="h-4 w-4" /> {title}</span>
+        <ChevronDown className="sf-collapse-icon h-4 w-4" />
+      </summary>
+      <div className="sf-collapse-body">{children}</div>
+    </details>
   );
 }
 
@@ -1032,7 +1310,9 @@ function TopViewSimulation({ data, result }: { data: WizardData; result: Advisor
   const half = 50;
   const gL = 'covGL', gR = 'covGR', clip = 'roomClipT';
 
-  const sideOffsetM = Math.max(0.6, roomW * 0.07);
+  const sideOffsetM = result.speakerPositions.length > 0
+    ? Math.min(...result.speakerPositions.map((speaker) => speaker.xPercent)) / 100 * roomW
+    : roomW / 2;
 
   return (
     <div className="sf-sim-card">
@@ -1140,12 +1420,15 @@ function TopViewSimulation({ data, result }: { data: WizardData; result: Advisor
           {result.speakerPositions.length > 0 && (() => {
             const firstY = ry + Math.min(...result.speakerPositions.map(s => s.yPercent)) / 100 * drawH;
             const lx = rx + drawW * 0.25;
+            const labelY = (ry + frontH + firstY) / 2;
+            const label = `≈${result.frontOffsetM.toFixed(1)}m`;
             return (
               <g>
                 <line x1={lx} y1={ry + frontH} x2={lx} y2={firstY} stroke="#1e40af" strokeWidth="1" strokeDasharray="3 2" />
                 <line x1={lx - 4} y1={ry + frontH} x2={lx + 4} y2={ry + frontH} stroke="#1e40af" strokeWidth="1.5" />
                 <line x1={lx - 4} y1={firstY} x2={lx + 4} y2={firstY} stroke="#1e40af" strokeWidth="1.5" />
-                <text x={lx + 5} y={(ry + frontH + firstY) / 2 + 3} fill="#1e40af" fontSize="8" fontWeight="700">≈{result.frontOffsetM.toFixed(1)}m</text>
+                <rect x={lx + 5} y={labelY - 8} width={36} height={15} rx="7" fill="#ffffff" opacity="0.9" />
+                <text x={lx + 23} y={labelY + 3} textAnchor="middle" fill="#1e40af" fontSize="8.5" fontWeight="900">{label}</text>
               </g>
             );
           })()}
@@ -1155,21 +1438,24 @@ function TopViewSimulation({ data, result }: { data: WizardData; result: Advisor
             const rows = [...new Set(result.speakerPositions.map(s => Math.round(s.yPercent)))].sort((a, b) => a - b);
             if (rows.length < 2) return null;
             const y1 = ry + rows[0] / 100 * drawH, y2 = ry + rows[1] / 100 * drawH;
-            const lx = rx - 28;
+            const lx = rx - 24;
+            const labelY = (y1 + y2) / 2;
+            const label = `≈${result.rowSpacingM.toFixed(1)}m`;
             return (
               <g>
                 <line x1={lx} y1={y1} x2={lx} y2={y2} stroke="#7c3aed" strokeWidth="1.5" />
                 <line x1={lx - 4} y1={y1} x2={lx + 4} y2={y1} stroke="#7c3aed" strokeWidth="1.5" />
                 <line x1={lx - 4} y1={y2} x2={lx + 4} y2={y2} stroke="#7c3aed" strokeWidth="1.5" />
-                <text x={lx - 4} y={(y1 + y2) / 2 + 4} textAnchor="end" fill="#7c3aed" fontSize="8" fontWeight="700">≈{result.rowSpacingM.toFixed(1)}m</text>
+                <rect x={lx - 40} y={labelY - 10} width={34} height={18} rx="8" fill="#ffffff" opacity="0.92" />
+                <text x={lx - 23} y={labelY + 3} textAnchor="middle" fill="#6d28d9" fontSize="8.5" fontWeight="900">{label}</text>
               </g>
             );
           })()}
 
           {/* Coverage radius label pill */}
-          <rect x={rx + 5} y={ry + drawH - 19} width={drawW - 10} height={15} rx="7.5" fill="rgba(14,165,233,0.09)" />
-          <text x={rx + drawW / 2} y={ry + drawH - 9} textAnchor="middle" fill="#0369a1" fontSize="8.5" fontWeight="700">
-            ⊙ radius coverage ≈{zoneM.toFixed(1)} m / speaker
+          <rect x={rx + 8} y={ry + drawH - 24} width={drawW - 16} height={18} rx="9" fill="#ffffff" opacity="0.86" />
+          <text x={rx + drawW / 2} y={ry + drawH - 11} textAnchor="middle" fill="#0369a1" fontSize="8.5" fontWeight="900">
+            radius coverage ≈{zoneM.toFixed(1)} m / speaker
           </text>
         </svg>
       </div>
@@ -1206,24 +1492,6 @@ function StandingFigureSVG({ cx, floorY, sc }: { cx: number; floorY: number; sc:
       <rect x={cx - bw * 0.50} y={floorY - H * 0.77} width={bw} height={H * 0.28} rx="2" />
       <rect x={cx - bw * 0.48} y={floorY - H * 0.47} width={lw} height={H * 0.47} rx="1.5" />
       <rect x={cx + bw * 0.48 - lw} y={floorY - H * 0.47} width={lw} height={H * 0.47} rx="1.5" />
-    </g>
-  );
-}
-
-function SeatedFigureSVG({ cx, floorY, sc }: { cx: number; floorY: number; sc: number }) {
-  const sH = 0.44 * sc;
-  const tH = 0.42 * sc;
-  const hr = Math.max(4.5, tH * 0.265);
-  const bw = Math.max(7, tH * 0.38);
-  const thL = bw * 1.55;
-  const lw = bw * 0.40;
-  const c = '#334155';
-  return (
-    <g fill={c}>
-      <circle cx={cx} cy={floorY - sH - tH - hr * 0.7} r={hr} />
-      <rect x={cx - bw * 0.5} y={floorY - sH - tH + hr * 0.2} width={bw} height={tH * 0.82} rx="2" />
-      <rect x={cx - bw * 0.5} y={floorY - sH - lw + 1} width={thL} height={lw} rx="2" />
-      <rect x={cx - bw * 0.5 + thL - lw} y={floorY - sH + 1} width={lw} height={sH * 0.88} rx="1.5" />
     </g>
   );
 }
@@ -1268,8 +1536,7 @@ function SideViewInstallation({ data, result }: { data: WizardData; result: Advi
   const [loX, loY] = clipRay(lowerRad);
 
   const boxW = 9, boxH = 16;
-  const seatX = pL + drawW * 0.40;
-  const standX = pL + drawW * 0.70;
+  const standX = pL + drawW * 0.58;
   const gId = 'sideBeam', clipId = 'sideClip';
 
   return (
@@ -1277,7 +1544,7 @@ function SideViewInstallation({ data, result }: { data: WizardData; result: Advi
       <div className="sf-sim-card-head">
         <div>
           <h4>Side view installation</h4>
-          <p>Cone suara berangkat tepat dari muka speaker, ±45° dari sumbu tilt. Referensi telinga duduk dan berdiri.</p>
+          <p>Cone suara berangkat tepat dari muka speaker, ±45° dari sumbu tilt. Garis hijau adalah referensi telinga pendengar.</p>
         </div>
         <span>{result.mountHeightM.toFixed(1)} m</span>
       </div>
@@ -1330,7 +1597,8 @@ function SideViewInstallation({ data, result }: { data: WizardData; result: Advi
 
           {/* ── Ear reference line ───────────────────────────────────────────── */}
           <line x1={pL} y1={earY} x2={pL + drawW} y2={earY} stroke="#16a34a" strokeWidth="1.5" strokeDasharray="6 3" />
-          <text x={pL + 5} y={earY - 4} fill="#15803d" fontSize="9" fontWeight="800">ear ≈ {result.listenerHeightM.toFixed(1)} m</text>
+          <rect x={pL + 5} y={earY - 18} width={72} height={15} rx="7" fill="#ffffff" opacity="0.9" />
+          <text x={pL + 41} y={earY - 7} textAnchor="middle" fill="#15803d" fontSize="8.5" fontWeight="900">ear ≈ {result.listenerHeightM.toFixed(1)} m</text>
 
           {/* ── Height dimension: mount height ───────────────────────────────── */}
           <line x1={pL - 20} y1={spkY} x2={pL - 20} y2={floorY} stroke="#2563eb" strokeWidth="1.5" />
@@ -1364,10 +1632,7 @@ function SideViewInstallation({ data, result }: { data: WizardData; result: Advi
 
           {/* ── Human figures ────────────────────────────────────────────────── */}
           <StandingFigureSVG cx={standX} floorY={floorY} sc={scY} />
-          <text x={standX} y={floorY + 14} textAnchor="middle" fill="#475569" fontSize="9" fontWeight="700">berdiri</text>
-
-          <SeatedFigureSVG cx={seatX} floorY={floorY} sc={scY} />
-          <text x={seatX} y={floorY + 14} textAnchor="middle" fill="#475569" fontSize="9" fontWeight="700">duduk</text>
+          <text x={standX} y={floorY + 14} textAnchor="middle" fill="#475569" fontSize="9" fontWeight="700">pendengar</text>
         </svg>
       </div>
 

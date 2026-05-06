@@ -215,9 +215,13 @@
   }
 }
 
+.sf-print-proposal {
+  display: none;
+}
+
 @media print {
   @page {
-    margin: 14mm;
+    margin: 12mm;
   }
 
   body {
@@ -225,39 +229,197 @@
     color: #0f172a !important;
   }
 
-  .sf-orb,
-  .fixed,
-  button {
+  .soundfit-result > :not(.sf-print-proposal),
+  .sf-orb {
     display: none !important;
+  }
+
+  .sf-print-proposal {
+    display: block !important;
+    font-family: "Plus Jakarta Sans", Arial, sans-serif;
+    color: #0f172a;
+    font-size: 10.2pt;
+    line-height: 1.55;
+  }
+
+  .sf-print-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 18mm;
+    align-items: flex-start;
+    padding-bottom: 7mm;
+    border-bottom: 1px solid #dbe3ef;
+  }
+
+  .sf-print-brand {
+    display: flex;
+    gap: 4mm;
+    align-items: center;
+  }
+
+  .sf-print-brand img {
+    width: 18mm;
+    height: 18mm;
+    border-radius: 5mm;
+  }
+
+  .sf-print-kicker,
+  .sf-print-date span,
+  .sf-print-box span {
+    color: #64748b;
+    font-size: 7.4pt;
+    font-weight: 900;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .sf-print-header h1 {
+    margin: 1mm 0 0;
+    font-size: 18pt;
+    line-height: 1.1;
+    letter-spacing: -0.04em;
+  }
+
+  .sf-print-date {
+    min-width: 35mm;
+    text-align: right;
+  }
+
+  .sf-print-date strong,
+  .sf-print-box strong {
+    display: block;
+    margin-top: 1mm;
+    font-weight: 900;
+  }
+
+  .sf-print-hero {
+    display: grid;
+    grid-template-columns: 1fr 54mm;
+    gap: 6mm;
+    padding: 7mm 0;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .sf-print-hero h2 {
+    margin: 1mm 0 2mm;
+    font-size: 22pt;
+    line-height: 1.05;
+    letter-spacing: -0.05em;
+  }
+
+  .sf-print-hero p {
+    margin: 0;
+    color: #475569;
+  }
+
+  .sf-print-budget {
+    border: 1px solid #bfdbfe;
+    border-radius: 5mm;
+    padding: 4mm;
+    background: #eff6ff;
+  }
+
+  .sf-print-budget span,
+  .sf-print-budget small {
+    display: block;
+    color: #1d4ed8;
+    font-size: 8pt;
+    font-weight: 900;
+  }
+
+  .sf-print-budget strong {
+    display: block;
+    margin: 1.5mm 0;
+    font-size: 13pt;
+    line-height: 1.25;
+  }
+
+  .sf-print-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 3mm;
+    margin: 6mm 0;
+  }
+
+  .sf-print-box {
+    border: 1px solid #e2e8f0;
+    border-radius: 4mm;
+    padding: 3mm;
+    break-inside: avoid;
+  }
+
+  .sf-print-section {
+    margin-top: 6mm;
+    break-inside: avoid;
+  }
+
+  .sf-print-section.two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 7mm;
+  }
+
+  .sf-print-section h3 {
+    margin: 0 0 2mm;
+    font-size: 13pt;
+    letter-spacing: -0.02em;
+  }
+
+  .sf-print-section table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid #e2e8f0;
+    border-radius: 4mm;
+    overflow: hidden;
+  }
+
+  .sf-print-section th,
+  .sf-print-section td {
+    border-bottom: 1px solid #e2e8f0;
+    padding: 2.5mm 3mm;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .sf-print-section th {
+    width: 38mm;
+    color: #334155;
+    background: #f8fafc;
+    font-weight: 900;
+  }
+
+  .sf-print-section tr:last-child th,
+  .sf-print-section tr:last-child td {
+    border-bottom: 0;
+  }
+
+  .sf-print-section ul {
+    margin: 0;
+    padding-left: 5mm;
+  }
+
+  .sf-print-section li {
+    margin-bottom: 1.8mm;
+  }
+
+  .sf-print-section.warning {
+    border: 1px solid #fcd34d;
+    border-radius: 4mm;
+    padding: 3mm 4mm;
+    background: #fffbeb;
+  }
+
+  .sf-print-footer {
+    margin-top: 8mm;
+    padding-top: 4mm;
+    border-top: 1px solid #dbe3ef;
+    color: #64748b;
+    font-size: 8.5pt;
   }
 
   .soundfit-result {
     max-width: none !important;
     padding: 0 !important;
-  }
-
-  .soundfit-result header,
-  .sf-glass-card,
-  .sf-side-card,
-  .sf-sim-card {
-    break-inside: avoid;
-    border: 1px solid #dbe3ef !important;
-    box-shadow: none !important;
-    background: #ffffff !important;
-  }
-
-  .soundfit-result .grid {
-    display: block !important;
-  }
-
-  .soundfit-result aside,
-  .soundfit-result section {
-    width: 100% !important;
-  }
-
-  a {
-    color: #1d4ed8 !important;
-    text-decoration: none !important;
   }
 }
 
@@ -1320,6 +1482,86 @@
     line-height: 1.35;
   }
 
+  .sf-result-tabs {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(4.4rem, 1fr));
+    gap: 0.35rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .sf-result-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .sf-result-tab {
+    min-height: 3rem;
+    border: 0;
+    border-radius: 1.1rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    padding: 0.6rem 0.7rem;
+    color: #64748b;
+    font-size: 0.78rem;
+    font-weight: 900;
+    background: transparent;
+    transition: background 180ms ease, color 180ms ease, box-shadow 180ms ease;
+    white-space: nowrap;
+  }
+
+  .sf-result-tab.is-active {
+    background: #2563eb;
+    color: #ffffff;
+    box-shadow: 0 12px 24px rgba(37, 99, 235, 0.22);
+  }
+
+  .sf-collapse {
+    border: 1px solid rgba(255, 255, 255, 0.76);
+    border-radius: 1.6rem;
+    background: rgba(255, 255, 255, 0.62);
+    box-shadow: 0 14px 32px rgba(15, 23, 42, 0.06);
+    overflow: hidden;
+    backdrop-filter: blur(18px);
+  }
+
+  .sf-collapse summary {
+    min-height: 3.6rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.95rem 1.05rem;
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .sf-collapse summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .sf-collapse-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.65rem;
+    color: #0f172a;
+    font-weight: 950;
+  }
+
+  .sf-collapse-icon {
+    color: #64748b;
+    transition: transform 180ms ease;
+  }
+
+  .sf-collapse[open] .sf-collapse-icon {
+    transform: rotate(180deg);
+  }
+
+  .sf-collapse-body {
+    padding: 0 0.8rem 0.8rem;
+  }
+
   @media (min-width: 640px) {
     .sf-option-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1417,6 +1659,28 @@
     .sf-side-card,
     .sf-preview-panel {
       border-radius: 1.65rem;
+    }
+
+    .sf-result-tabs {
+      grid-template-columns: repeat(6, max-content);
+      padding-bottom: 0.05rem;
+    }
+
+    .sf-result-tab {
+      min-width: 4.55rem;
+      min-height: 2.85rem;
+      flex-direction: column;
+      gap: 0.2rem;
+      padding: 0.48rem 0.62rem;
+      font-size: 0.67rem;
+    }
+
+    .sf-collapse {
+      border-radius: 1.35rem;
+    }
+
+    .sf-collapse-body {
+      padding: 0 0.55rem 0.55rem;
     }
   }
 }
