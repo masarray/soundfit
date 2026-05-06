@@ -1,3 +1,6 @@
+import { recommendProducts } from '../engine/productMatching/productMatcher';
+import type { ProductRecommendation } from '../data/products/productTypes';
+
 export type VenueType = 'mosque' | 'church' | 'hall' | 'classroom' | 'meeting' | 'cafe' | 'retail' | 'outdoor';
 export type UseCase = 'speech' | 'study' | 'worship_music' | 'live_music' | 'paging' | 'presentation' | 'background_music' | 'multipurpose';
 export type ProjectCondition = 'new_system' | 'upgrade' | 'troubleshoot' | 'vendor_review' | 'quick_proposal';
@@ -92,6 +95,7 @@ export interface AdvisoryResult {
     balanced: { speakerCount: number; description: string };
     premium: { speakerCount: number; description: string };
   };
+  productRecommendation: ProductRecommendation;
   smartInsight: SmartInsight;
   proposalText: string;
 }
@@ -518,38 +522,7 @@ export function generateAdvisoryResult(data: WizardData): AdvisoryResult {
 - Speaker serambi    : ${wing1SpeakerCount + wing2SpeakerCount} unit (${roomShape === 'U' ? `${wing1SpeakerCount} kiri + ${wing2SpeakerCount} kanan` : `1 serambi`})`
     : '';
 
-  const proposalText = `Rekomendasi Awal Sistem Speaker Ruangan
-========================================
-Jenis Tempat    : ${venueLabel}
-Ukuran Ruangan  : ${roomLengthM} m x ${roomWidthM} m (${areaM2.toFixed(0)} m2)
-Tinggi Plafon   : ${ceilingHeightM} m
-Fungsi Utama    : ${useCaseLabel}
-Mode Solusi     : ${modeLabel}
-${wingLine}
-Rekomendasi:
-- Jumlah speaker    : ${speakerCount} unit total
-- Layout pemasangan : ${layoutDescription}
-- Tipe speaker      : ${speakerType}
-- Tinggi pemasangan : approx. ${mountHeightM.toFixed(1)} m dari lantai (tilt ke bawah approx. ${mountTiltDeg} deg)
-
-Alasan Rekomendasi:
-${reasons.map(r => `- ${r}`).join('\n')}
-
-Insight SoundFit:
-- ${smartInsight.roomShapeLabel}: ${smartInsight.roomShapeMessage}
-- Strategi posisi: ${smartInsight.placementStrategy}
-- Keputusan speaker depan: ${smartInsight.frontSpeakerDecision}
-- Saran tinggi: ${smartInsight.heightAdvice}
-
-Catatan Instalasi:
-${installationNotes.map(n => `- ${n}`).join('\n')}
-
----
-Rekomendasi ini merupakan estimasi awal berbasis data ruangan.
-Sebaiknya dikonfirmasi dengan survei langsung sebelum pembelian.
-Dibuat dengan SoundFit Room Sound Planning Assistant.`;
-
-  return {
+  const baseResult = {
     speakerCount,
     mainHallSpeakerCount,
     wing1SpeakerCount,
@@ -583,6 +556,52 @@ Dibuat dengan SoundFit Room Sound Planning Assistant.`;
       premium: { speakerCount: getCountForMode('premium'), description: "Distribusi terbaik: lebih nyaman untuk ruangan panjang, ramai, atau sering dipakai." }
     },
     smartInsight,
+  };
+
+  const productRecommendation = recommendProducts(data, baseResult as AdvisoryResult);
+  const productLine = `${productRecommendation.speakerQuantity} unit ${productRecommendation.speaker.brand} ${productRecommendation.speaker.model} @ ${productRecommendation.selectedTapW}W + amplifier ${productRecommendation.amplifier.brand} ${productRecommendation.amplifier.model} ${productRecommendation.amplifier.ratedOutputW}W`;
+  const budgetLine = `Estimasi hardware utama: Rp${productRecommendation.cost.mainHardwareMin.toLocaleString('id-ID')} - Rp${productRecommendation.cost.mainHardwareMax.toLocaleString('id-ID')} (${productRecommendation.cost.systemBudgetTier})`;
+
+  const proposalText = `Rekomendasi Awal Sistem Speaker Ruangan
+========================================
+Jenis Tempat    : ${venueLabel}
+Ukuran Ruangan  : ${roomLengthM} m x ${roomWidthM} m (${areaM2.toFixed(0)} m2)
+Tinggi Plafon   : ${ceilingHeightM} m
+Fungsi Utama    : ${useCaseLabel}
+Mode Solusi     : ${modeLabel}
+${wingLine}
+Rekomendasi:
+- Jumlah speaker    : ${speakerCount} unit total
+- Layout pemasangan : ${layoutDescription}
+- Tipe speaker      : ${speakerType}
+- Tinggi pemasangan : approx. ${mountHeightM.toFixed(1)} m dari lantai (tilt ke bawah approx. ${mountTiltDeg} deg)
+- Produk awal       : ${productLine}
+- Level budget      : ${budgetLine}
+
+Alasan Rekomendasi:
+${reasons.map(r => `- ${r}`).join('\n')}
+
+Product Intelligence:
+${productRecommendation.reasons.map(r => `- ${r}`).join('\n')}
+
+Insight SoundFit:
+- ${smartInsight.roomShapeLabel}: ${smartInsight.roomShapeMessage}
+- Strategi posisi: ${smartInsight.placementStrategy}
+- Keputusan speaker depan: ${smartInsight.frontSpeakerDecision}
+- Saran tinggi: ${smartInsight.heightAdvice}
+
+Catatan Instalasi:
+${installationNotes.map(n => `- ${n}`).join('\n')}
+
+---
+Rekomendasi ini merupakan estimasi awal berbasis data ruangan.
+Harga hanya estimasi hardware utama, belum termasuk kabel, pipa/trunking, bracket tambahan, mic, jasa instalasi, transport, pajak, dan margin vendor.
+Sebaiknya dikonfirmasi dengan survei langsung sebelum pembelian.
+Dibuat dengan SoundFit Room Sound Planning Assistant.`;
+
+  return {
+    ...baseResult,
+    productRecommendation,
     proposalText
   };
 }

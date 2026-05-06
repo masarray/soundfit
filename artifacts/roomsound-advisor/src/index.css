@@ -215,6 +215,52 @@
   }
 }
 
+@media print {
+  @page {
+    margin: 14mm;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  .sf-orb,
+  .fixed,
+  button {
+    display: none !important;
+  }
+
+  .soundfit-result {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+
+  .soundfit-result header,
+  .sf-glass-card,
+  .sf-side-card,
+  .sf-sim-card {
+    break-inside: avoid;
+    border: 1px solid #dbe3ef !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+  }
+
+  .soundfit-result .grid {
+    display: block !important;
+  }
+
+  .soundfit-result aside,
+  .soundfit-result section {
+    width: 100% !important;
+  }
+
+  a {
+    color: #1d4ed8 !important;
+    text-decoration: none !important;
+  }
+}
+
 @layer utilities {
   input[type="search"]::-webkit-search-cancel-button {
     @apply hidden;

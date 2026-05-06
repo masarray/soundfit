@@ -12,7 +12,7 @@ import {
   Mic2,
   Music2,
   RotateCcw,
-  Share2,
+  FileDown,
   SlidersHorizontal,
   Sparkles,
   Store,
@@ -798,31 +798,14 @@ function StickyActionBar({ step, onPrev, onNext, onReset, data }: {
 
 function ResultView({ data, result, onEdit, onRestart }: { data: WizardData; result: AdvisoryResult; onEdit: () => void; onRestart: () => void }) {
   const tips = getSmartTips(data, result);
-  const [copied, setCopied] = useState(false);
   const amp = calcAmpRequirements(result, 90, 8, data.useCase === 'live_music' || data.useCase === 'worship_music' ? 10 : 6, data.useCase, data);
 
-  const shareText = [
-    result.proposalText,
-    '',
-    'Saran Amplifier dan Kabel:',
-    `- Sistem kabel      : ${amp.systemLabel}`,
-    `- Rekomendasi amp   : ${amp.recommendedAmpType}`,
-    `- Estimasi kabel    : approx. ${amp.estimatedCableM} m dari amplifier ke speaker terjauh`,
-    `- Target SPL awal   : ${amp.targetSplDb} dB`,
-    `- Catatan wiring    : ${amp.wiringDesc}`,
-    '',
-    'Catatan SoundFit:',
-    ...amp.notes.slice(0, 5).map((note) => `- ${note}`),
-  ].join('\n');
-
-  const copy = async () => {
-    await navigator.clipboard.writeText(shareText);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1800);
+  const exportPdf = () => {
+    window.print();
   };
 
   return (
-    <div className="mx-auto min-h-[100dvh] w-full max-w-6xl px-4 pb-32 pt-6 sm:px-6 lg:px-8">
+    <div className="soundfit-result mx-auto min-h-[100dvh] w-full max-w-6xl px-4 pb-32 pt-6 sm:px-6 lg:px-8">
       <header className="mb-6 rounded-[2rem] border border-white/70 bg-white/60 p-4 shadow-lg shadow-blue-950/5 backdrop-blur-2xl">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
@@ -834,7 +817,7 @@ function ResultView({ data, result, onEdit, onRestart }: { data: WizardData; res
           </div>
           <div className="flex gap-2">
             <Button className="rounded-2xl" variant="outline" onClick={onEdit}><ArrowLeft className="mr-2 h-4 w-4" /> Edit</Button>
-            <Button className="rounded-2xl bg-blue-600 hover:bg-blue-700" onClick={copy}><Share2 className="mr-2 h-4 w-4" /> {copied ? 'Tersalin' : 'Salin'}</Button>
+            <Button className="rounded-2xl bg-blue-600 hover:bg-blue-700" onClick={exportPdf}><FileDown className="mr-2 h-4 w-4" /> Export PDF</Button>
           </div>
         </div>
       </header>
@@ -859,6 +842,8 @@ function ResultView({ data, result, onEdit, onRestart }: { data: WizardData; res
 
           <SimulationPanel data={data} result={result} />
           <AmplifierPanel amp={amp} />
+          <ProductRecommendationPanel result={result} />
+          <ExportProposalPanel result={result} amp={amp} onExportPdf={exportPdf} />
 
           <InfoBlock title="Kenapa layout ini dipilih?" icon={Lightbulb} items={result.reasons.length ? result.reasons : [result.executiveSummary]} />
           <InfoBlock title="Tips pemasangan speaker" icon={Zap} items={tips} />
@@ -905,9 +890,8 @@ function ResultView({ data, result, onEdit, onRestart }: { data: WizardData; res
       <div className="fixed inset-x-0 bottom-0 z-50 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
         <div className="mx-auto flex max-w-5xl items-center gap-3 rounded-[2rem] border border-white/70 bg-white/65 p-3 shadow-2xl shadow-blue-950/10 backdrop-blur-2xl">
           <button className="sf-action-button secondary" onClick={onEdit} type="button"><ArrowLeft className="h-4 w-4" /> Ubah Input</button>
-          <div className="hidden flex-1 text-sm font-semibold text-slate-600 sm:block">SoundFit result siap dibagikan ke panitia atau teknisi.</div>
+          <div className="hidden flex-1 text-sm font-semibold text-slate-600 sm:block">Export PDF tersedia di bagian hasil, bukan tombol lanjut otomatis.</div>
           <button className="sf-action-button secondary" onClick={onRestart} type="button"><RotateCcw className="h-4 w-4" /> Reset</button>
-          <button className="sf-action-button primary" onClick={copy} type="button"><Share2 className="h-4 w-4" /> Salin Hasil</button>
         </div>
       </div>
     </div>
@@ -1430,6 +1414,208 @@ function AmplifierPanel({ amp }: { amp: ReturnType<typeof calcAmpRequirements> }
               <span>{note}</span>
             </div>
           ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function formatIdr(value: number): string {
+  if (value <= 0) return 'Belum ada estimasi';
+  return `Rp${value.toLocaleString('id-ID')}`;
+}
+
+function ProductBadge({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="rounded-full border border-slate-200 bg-white/70 px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-slate-600">
+      {children}
+    </span>
+  );
+}
+
+function ProductRecommendationPanel({ result }: { result: AdvisoryResult }) {
+  const rec = result.productRecommendation;
+  const tierLabel: Record<string, string> = {
+    cheap: 'Cheap / ekonomis',
+    normal: 'Normal / aman',
+    premium: 'Premium',
+    pro: 'Pro',
+  };
+
+  return (
+    <Card className="sf-glass-card">
+      <CardContent className="space-y-5 p-5 sm:p-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <div className="text-sm font-black text-blue-700">Product intelligence foundation</div>
+            <h3 className="text-2xl font-black tracking-tight text-slate-950">Rekomendasi produk TOA awal</h3>
+            <p className="mt-1 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
+              Seed database pertama untuk speaker PA address dan amplifier 100V. Harga adalah estimasi hardware utama, bukan quotation final proyek.
+            </p>
+          </div>
+          <Badge className="w-fit rounded-full bg-blue-600/10 px-3 py-1 text-blue-700 hover:bg-blue-600/10">
+            {tierLabel[rec.cost.systemBudgetTier]}
+          </Badge>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
+          <div className="rounded-[1.7rem] border border-blue-100 bg-blue-50/70 p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <ProductBadge>Speaker</ProductBadge>
+                <h4 className="mt-3 text-2xl font-black tracking-tight text-slate-950">{rec.speaker.brand} {rec.speaker.model}</h4>
+                <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">{rec.speaker.notes[0]}</p>
+              </div>
+              <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-500/25">
+                <Volume2 className="h-7 w-7" />
+              </div>
+            </div>
+            <div className="mt-4 grid gap-2 sm:grid-cols-3">
+              <Metric label="Jumlah" value={`${rec.speakerQuantity} pcs`} />
+              <Metric label="Tap" value={`${rec.selectedTapW}W`} />
+              <Metric label="Load" value={`${rec.totalSpeakerLoadW}W`} />
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <ProductBadge>{rec.speaker.category.replaceAll('_', ' ')}</ProductBadge>
+              <ProductBadge>{rec.speaker.marketTier}</ProductBadge>
+              <ProductBadge>{rec.speaker.sourceQuality.replaceAll('_', ' ')}</ProductBadge>
+            </div>
+            {rec.speaker.productUrl && (
+              <a className="mt-4 inline-flex text-sm font-black text-blue-700 hover:text-blue-900" href={rec.speaker.productUrl} target="_blank" rel="noreferrer">
+                Lihat halaman produk TOA
+              </a>
+            )}
+          </div>
+
+          <div className="rounded-[1.7rem] border border-emerald-100 bg-emerald-50/75 p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <ProductBadge>Amplifier</ProductBadge>
+                <h4 className="mt-3 text-2xl font-black tracking-tight text-slate-950">{rec.amplifier.brand} {rec.amplifier.model}</h4>
+                <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">{rec.amplifier.notes[0]}</p>
+              </div>
+              <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-emerald-600 text-white shadow-lg shadow-emerald-500/25">
+                <Zap className="h-7 w-7" />
+              </div>
+            </div>
+            <div className="mt-4 grid gap-2 sm:grid-cols-3">
+              <Metric label="Output" value={`${rec.amplifier.ratedOutputW}W`} />
+              <Metric label="Min. aman" value={`${rec.requiredAmplifierW}W`} />
+              <Metric label="Mic input" value={`${rec.amplifier.micInputs ?? 0}`} />
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <ProductBadge>{rec.amplifier.series}</ProductBadge>
+              <ProductBadge>100V / 70V / 4 ohm</ProductBadge>
+              <ProductBadge>{rec.amplifier.sourceQuality.replaceAll('_', ' ')}</ProductBadge>
+            </div>
+            {rec.amplifier.productUrl && (
+              <a className="mt-4 inline-flex text-sm font-black text-emerald-700 hover:text-emerald-900" href={rec.amplifier.productUrl} target="_blank" rel="noreferrer">
+                Lihat halaman produk TOA
+              </a>
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-[1.6rem] border border-slate-200 bg-white/70 p-4">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Metric label="Hardware min" value={formatIdr(rec.cost.mainHardwareMin)} />
+            <Metric label="Hardware typical" value={formatIdr(rec.cost.mainHardwareTypical)} />
+            <Metric label="Hardware max" value={formatIdr(rec.cost.mainHardwareMax)} />
+          </div>
+          <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
+            Belum termasuk: {rec.cost.excludedItems.join(', ')}.
+          </p>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-2">
+          {rec.reasons.slice(0, 5).map((reason) => (
+            <div key={reason} className="flex gap-3 rounded-2xl border border-white/70 bg-white/60 p-4 text-sm font-semibold leading-6 text-slate-700 shadow-sm">
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />
+              <span>{reason}</span>
+            </div>
+          ))}
+        </div>
+
+        {rec.alternatives.length > 0 && (
+          <div className="rounded-[1.6rem] border border-slate-200 bg-slate-50/80 p-4">
+            <div className="text-sm font-black text-slate-950">Alternatif speaker untuk dibandingkan</div>
+            <div className="mt-3 grid gap-2 sm:grid-cols-3">
+              {rec.alternatives.map((speaker) => (
+                <div key={speaker.id} className="rounded-2xl bg-white/75 p-3 text-sm shadow-sm">
+                  <div className="font-black text-slate-900">{speaker.brand} {speaker.model}</div>
+                  <div className="mt-1 font-semibold text-slate-500">{speaker.category.replaceAll('_', ' ')} - {speaker.marketTier}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {rec.warnings.length > 0 && (
+          <div className="space-y-2">
+            {rec.warnings.map((warning) => (
+              <p key={warning} className="rounded-2xl bg-amber-400/12 p-3 text-sm font-semibold leading-6 text-amber-900">{warning}</p>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function ExportProposalPanel({
+  result,
+  amp,
+  onExportPdf,
+}: {
+  result: AdvisoryResult;
+  amp: ReturnType<typeof calcAmpRequirements>;
+  onExportPdf: () => void;
+}) {
+  const rec = result.productRecommendation;
+
+  return (
+    <Card className="sf-glass-card print:shadow-none">
+      <CardContent className="space-y-5 p-5 sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="text-sm font-black text-slate-600">Proposal export</div>
+            <h3 className="text-2xl font-black tracking-tight text-slate-950">Ringkasan yang siap dijadikan PDF</h3>
+            <p className="mt-1 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
+              Tombol ini membuka print dialog browser. Pilih “Save as PDF” untuk menyimpan file proposal.
+            </p>
+          </div>
+          <Button className="w-full rounded-2xl bg-slate-950 hover:bg-slate-800 sm:w-auto" onClick={onExportPdf}>
+            <FileDown className="mr-2 h-4 w-4" /> Export PDF
+          </Button>
+        </div>
+
+        <div className="rounded-[1.5rem] border border-slate-200 bg-white/75 p-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <div className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Produk utama</div>
+              <p className="mt-2 text-base font-black leading-7 text-slate-950">
+                {rec.speakerQuantity} pcs {rec.speaker.brand} {rec.speaker.model} @ {rec.selectedTapW}W
+              </p>
+              <p className="text-sm font-semibold leading-6 text-slate-600">
+                Amplifier {rec.amplifier.brand} {rec.amplifier.model} {rec.amplifier.ratedOutputW}W.
+              </p>
+            </div>
+            <div>
+              <div className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Estimasi utama</div>
+              <p className="mt-2 text-base font-black leading-7 text-slate-950">
+                {formatIdr(rec.cost.mainHardwareMin)} - {formatIdr(rec.cost.mainHardwareMax)}
+              </p>
+              <p className="text-sm font-semibold leading-6 text-slate-600">
+                Sistem {amp.systemLabel}, total load approx. {rec.totalSpeakerLoadW}W, estimasi kabel {amp.estimatedCableM}m.
+              </p>
+            </div>
+          </div>
+          <div className="mt-4 border-t border-slate-200 pt-4">
+            <div className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Catatan PDF</div>
+            <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+              Estimasi belum termasuk {rec.cost.excludedItems.join(', ')}. Survey lapangan dan validasi harga vendor tetap diperlukan sebelum pembelian.
+            </p>
+          </div>
         </div>
       </CardContent>
     </Card>
