@@ -1022,142 +1022,375 @@ function SimulationPanel({ data, result }: { data: WizardData; result: AdvisoryR
 }
 
 function TopViewSimulation({ data, result }: { data: WizardData; result: AdvisoryResult }) {
-  const length = Math.max(data.roomLengthM, 1);
-  const width = Math.max(data.roomWidthM, 1);
-  const ratio = length / width;
-  const canvasWidth = ratio >= 1 ? Math.max(220, Math.min(360, 330 / Math.min(ratio, 2.4))) : 360;
-  const canvasHeight = ratio >= 1 ? 390 : Math.max(230, Math.min(330, 310 * Math.min(ratio, 1)));
-  const speakerRows = Array.from(new Set(result.speakerPositions.map((speaker) => Math.round(speaker.yPercent))));
-  const rowSpacing = result.rowCount > 1 ? result.rowSpacingM.toFixed(1) : length.toFixed(1);
-  const rowDimStart = speakerRows[0] ?? 15;
-  const rowDimEnd = speakerRows[1] ?? Math.min(rowDimStart + 22, 85);
-  const sideOffset = Math.max(0.8, width * 0.08).toFixed(1);
-  const toeInAdvice = width >= 10 || data.venueType === 'mosque' || data.venueType === 'church' || data.venueType === 'hall';
-  const frontAssistAdvice = (data.venueType === 'mosque' || data.venueType === 'church') && width >= 12 && result.speakerCount >= 4;
+  const roomL = Math.max(data.roomLengthM, 1);
+  const roomW = Math.max(data.roomWidthM, 1);
+
+  const BASE_W = 316;
+  const svgW = BASE_W;
+  const svgH = Math.max(220, Math.min(460, Math.round(BASE_W * (roomL / roomW) * 0.94)));
+
+  const pL = 44, pR = 22, pT = 42, pB = 38;
+  const drawW = svgW - pL - pR;
+  const drawH = svgH - pT - pB;
+  const sx = drawW / roomW;
+  const sy = drawH / roomL;
+  const rx = pL, ry = pT;
+
+  const frontH = Math.max(26, Math.min(54, result.frontOffsetM * sy));
+
+  // Coverage zone depth = what each speaker row covers (engineering throw distance)
+  const zoneM = result.rowCount > 1 ? result.rowSpacingM : roomL * 0.72;
+  const cR1 = Math.min(zoneM * sy * 0.55, drawH * 0.36);  // inner core (-3 dB)
+  const cR2 = Math.min(zoneM * sy, drawH * 0.52);          // outer -6 dB boundary
+  const cR3 = Math.min(zoneM * sy * 1.4, drawH * 0.68);   // falloff zone
+
+  // 100° horizontal coverage ±50° (standard wall/column speaker spec)
+  const half = 50;
+  const gL = 'covGL', gR = 'covGR', clip = 'roomClipT';
+
+  const sideOffsetM = Math.max(0.6, roomW * 0.07);
 
   return (
     <div className="sf-sim-card">
       <div className="sf-sim-card-head">
         <div>
           <h4>Top view layout</h4>
-          <p>Denah teknis ringan: dinding siku, dimensi ruang, jarak antar row, arah coverage, dan orientasi box speaker.</p>
+          <p>Coverage arc tiap speaker berdasarkan geometri akustik: radius sebaran, overlap antar zona, jarak baris.</p>
         </div>
         <span>{result.speakerCount} speaker</span>
       </div>
-      <div className="sf-topview-wrap">
-        <div className="sf-plan-board">
-          <div className="sf-plan-dim sf-plan-dim-length"><span>{length} m</span></div>
-          <div className="sf-plan-dim sf-plan-dim-width"><span>{width} m</span></div>
-          <div
-            className="sf-row-dim"
-            style={{
-              '--row-dim-top': `${rowDimStart}%`,
-              '--row-dim-height': `${Math.max(8, rowDimEnd - rowDimStart)}%`,
-            } as React.CSSProperties & Record<string, string>}
-          >
-            <span>S1-S3 approx. {rowSpacing} m</span>
-          </div>
-          <div className="sf-topview-canvas" style={{ width: canvasWidth, height: canvasHeight }}>
-            <div className="sf-mihrab-box">FRONT / MIMBAR / STAGE</div>
-            <div className="sf-zone sf-zone-front">front</div>
-            <div className="sf-zone sf-zone-mid">middle</div>
-            <div className="sf-zone sf-zone-rear">rear</div>
-            <div className="sf-center-line" />
-            {frontAssistAdvice && (
-              <>
-                <div className="sf-front-assist is-left">assist</div>
-                <div className="sf-front-assist is-right">assist</div>
-              </>
-            )}
-            {result.speakerPositions.map((speaker) => {
-              const angle = toeInAdvice ? speaker.side === 'left' ? 6 : -6 : 0;
-              const style = {
-                top: `${speaker.yPercent}%`,
-                '--speaker-angle': `${angle}deg`,
-              } as React.CSSProperties & Record<string, string>;
 
-              return (
-                <div
-                  key={speaker.id}
-                  className={`sf-sim-speaker ${speaker.side === 'left' ? 'is-left' : 'is-right'}`}
-                  style={style}
-                >
-                  <span className="sf-coverage-cone" />
-                  <strong>{speaker.id}</strong>
-                </div>
-              );
-            })}
-          </div>
-          <div className="sf-front-offset-dim"><span>front offset approx. {result.frontOffsetM.toFixed(1)} m</span></div>
-        </div>
+      <div style={{ display: 'flex', justifyContent: 'center', padding: '1rem 0.5rem 0.5rem' }}>
+        <svg viewBox={`0 0 ${svgW} ${svgH}`} width="100%" style={{ maxWidth: svgW, display: 'block' }}>
+          <defs>
+            <radialGradient id={gL} cx="0%" cy="50%" r="100%" fx="0%" fy="50%">
+              <stop offset="0%"   stopColor="#0ea5e9" stopOpacity="0.48" />
+              <stop offset="40%"  stopColor="#0ea5e9" stopOpacity="0.22" />
+              <stop offset="72%"  stopColor="#0ea5e9" stopOpacity="0.07" />
+              <stop offset="100%" stopColor="#0ea5e9" stopOpacity="0" />
+            </radialGradient>
+            <radialGradient id={gR} cx="100%" cy="50%" r="100%" fx="100%" fy="50%">
+              <stop offset="0%"   stopColor="#0ea5e9" stopOpacity="0.48" />
+              <stop offset="40%"  stopColor="#0ea5e9" stopOpacity="0.22" />
+              <stop offset="72%"  stopColor="#0ea5e9" stopOpacity="0.07" />
+              <stop offset="100%" stopColor="#0ea5e9" stopOpacity="0" />
+            </radialGradient>
+            <clipPath id={clip}>
+              <rect x={rx} y={ry} width={drawW} height={drawH} />
+            </clipPath>
+          </defs>
+
+          {/* Room floor */}
+          <rect x={rx} y={ry} width={drawW} height={drawH} fill="#f8fafc" />
+
+          {/* 1 m × 1 m grid */}
+          {Array.from({ length: Math.ceil(roomW) + 1 }, (_, i) => (
+            <line key={`gx${i}`} x1={rx + i * sx} y1={ry} x2={rx + i * sx} y2={ry + drawH} stroke="#e2e8f0" strokeWidth="0.7" />
+          ))}
+          {Array.from({ length: Math.ceil(roomL) + 1 }, (_, i) => (
+            <line key={`gy${i}`} x1={rx} y1={ry + i * sy} x2={rx + drawW} y2={ry + i * sy} stroke="#e2e8f0" strokeWidth="0.7" />
+          ))}
+
+          {/* Front / mimbar zone */}
+          <rect x={rx} y={ry} width={drawW} height={frontH} fill="#dbeafe" opacity="0.8" />
+          <text x={rx + drawW / 2} y={ry + frontH / 2 + 4} textAnchor="middle" fill="#1e40af" fontSize="9" fontWeight="800">FRONT / MIMBAR / STAGE</text>
+
+          {/* Coverage sectors — drawn before speaker boxes */}
+          {result.speakerPositions.map((spk) => {
+            const cx = rx + (spk.xPercent / 100) * drawW;
+            const cy = ry + (spk.yPercent / 100) * drawH;
+            const isL = spk.side === 'left';
+            const base = isL ? 0 : 180;
+            return (
+              <g key={`cov${spk.id}`} clipPath={`url(#${clip})`}>
+                <path d={arcSector(cx, cy, cR3, base - half, base + half)} fill="#38bdf8" opacity="0.06" />
+                <path d={arcSector(cx, cy, cR2, base - half, base + half)} fill={`url(#${isL ? gL : gR})`} />
+                <path d={arcSector(cx, cy, cR1, base - half, base + half)} fill="#0ea5e9" opacity="0.13" />
+              </g>
+            );
+          })}
+
+          {/* Room border (above coverage, below speaker boxes) */}
+          <rect x={rx} y={ry} width={drawW} height={drawH} fill="none" stroke="#1e293b" strokeWidth="2" />
+
+          {/* Centre line */}
+          <line x1={rx + drawW / 2} y1={ry} x2={rx + drawW / 2} y2={ry + drawH} stroke="#cbd5e1" strokeWidth="1" strokeDasharray="4 3" />
+
+          {/* Zone labels */}
+          {(['FRONT', 'MIDDLE', 'REAR'] as const).map((z, i) => (
+            <text key={z} x={rx + drawW / 2} y={ry + drawH * [0.30, 0.57, 0.82][i]}
+              textAnchor="middle" fill="#94a3b8" fontSize="8.5" fontWeight="700" letterSpacing="0.1em">{z}</text>
+          ))}
+
+          {/* Speaker boxes */}
+          {result.speakerPositions.map((spk) => {
+            const cx = rx + (spk.xPercent / 100) * drawW;
+            const cy = ry + (spk.yPercent / 100) * drawH;
+            const isL = spk.side === 'left';
+            const bW = 18, bH = 9;
+            const bx = isL ? cx - 2 : cx - bW + 2;
+            return (
+              <g key={`sp${spk.id}`}>
+                <rect x={bx} y={cy - bH / 2} width={bW} height={bH} rx="2.5" fill="#1e40af" />
+                <rect x={isL ? bx + bW - 4 : bx} y={cy - bH / 2 + 1} width={4} height={bH - 2} rx="1" fill="#60a5fa" />
+                <text x={cx + (isL ? 3 : -3)} y={cy - bH / 2 - 3}
+                  textAnchor={isL ? 'start' : 'end'} fill="#1e40af" fontSize="8" fontWeight="800">{spk.id}</text>
+              </g>
+            );
+          })}
+
+          {/* ── Dimension: room width (bottom) */}
+          <line x1={rx} y1={ry + drawH + 20} x2={rx + drawW} y2={ry + drawH + 20} stroke="#64748b" strokeWidth="1.5" />
+          <line x1={rx} y1={ry + drawH + 14} x2={rx} y2={ry + drawH + 26} stroke="#64748b" strokeWidth="1.5" />
+          <line x1={rx + drawW} y1={ry + drawH + 14} x2={rx + drawW} y2={ry + drawH + 26} stroke="#64748b" strokeWidth="1.5" />
+          <text x={rx + drawW / 2} y={ry + drawH + 34} textAnchor="middle" fill="#475569" fontSize="10" fontWeight="700">{roomW} m</text>
+
+          {/* ── Dimension: room length (right side) */}
+          <line x1={rx + drawW + 14} y1={ry} x2={rx + drawW + 14} y2={ry + drawH} stroke="#64748b" strokeWidth="1.5" />
+          <line x1={rx + drawW + 9} y1={ry} x2={rx + drawW + 19} y2={ry} stroke="#64748b" strokeWidth="1.5" />
+          <line x1={rx + drawW + 9} y1={ry + drawH} x2={rx + drawW + 19} y2={ry + drawH} stroke="#64748b" strokeWidth="1.5" />
+          <text x={rx + drawW + 26} y={ry + drawH / 2} textAnchor="middle" fill="#475569" fontSize="10" fontWeight="700"
+            transform={`rotate(90,${rx + drawW + 26},${ry + drawH / 2})`}>{roomL} m</text>
+
+          {/* ── Front offset dimension */}
+          {result.speakerPositions.length > 0 && (() => {
+            const firstY = ry + Math.min(...result.speakerPositions.map(s => s.yPercent)) / 100 * drawH;
+            const lx = rx + drawW * 0.25;
+            return (
+              <g>
+                <line x1={lx} y1={ry + frontH} x2={lx} y2={firstY} stroke="#1e40af" strokeWidth="1" strokeDasharray="3 2" />
+                <line x1={lx - 4} y1={ry + frontH} x2={lx + 4} y2={ry + frontH} stroke="#1e40af" strokeWidth="1.5" />
+                <line x1={lx - 4} y1={firstY} x2={lx + 4} y2={firstY} stroke="#1e40af" strokeWidth="1.5" />
+                <text x={lx + 5} y={(ry + frontH + firstY) / 2 + 3} fill="#1e40af" fontSize="8" fontWeight="700">≈{result.frontOffsetM.toFixed(1)}m</text>
+              </g>
+            );
+          })()}
+
+          {/* ── Row spacing dimension */}
+          {result.rowCount > 1 && (() => {
+            const rows = [...new Set(result.speakerPositions.map(s => Math.round(s.yPercent)))].sort((a, b) => a - b);
+            if (rows.length < 2) return null;
+            const y1 = ry + rows[0] / 100 * drawH, y2 = ry + rows[1] / 100 * drawH;
+            const lx = rx - 28;
+            return (
+              <g>
+                <line x1={lx} y1={y1} x2={lx} y2={y2} stroke="#7c3aed" strokeWidth="1.5" />
+                <line x1={lx - 4} y1={y1} x2={lx + 4} y2={y1} stroke="#7c3aed" strokeWidth="1.5" />
+                <line x1={lx - 4} y1={y2} x2={lx + 4} y2={y2} stroke="#7c3aed" strokeWidth="1.5" />
+                <text x={lx - 4} y={(y1 + y2) / 2 + 4} textAnchor="end" fill="#7c3aed" fontSize="8" fontWeight="700">≈{result.rowSpacingM.toFixed(1)}m</text>
+              </g>
+            );
+          })()}
+
+          {/* Coverage radius label pill */}
+          <rect x={rx + 5} y={ry + drawH - 19} width={drawW - 10} height={15} rx="7.5" fill="rgba(14,165,233,0.09)" />
+          <text x={rx + drawW / 2} y={ry + drawH - 9} textAnchor="middle" fill="#0369a1" fontSize="8.5" fontWeight="700">
+            ⊙ radius coverage ≈{zoneM.toFixed(1)} m / speaker
+          </text>
+        </svg>
       </div>
+
       <div className="sf-sim-facts">
-        <span>Wall corners: square technical plan</span>
-        <span>Side offset approx. {sideOffset} m from wall before final aiming</span>
-        <span>Speaker angle: {toeInAdvice ? 'slight toe-in toward listener area' : 'mostly straight coverage'}</span>
-        <span>{speakerRows.length} speaker row</span>
-        {frontAssistAdvice && <span>Wide worship room: consider slim front assist near mimbar</span>}
+        <span>±{half}° horizontal per speaker (100° total)</span>
+        <span>Overlap coverage di tengah: SPL naik +3 dB</span>
+        {result.rowCount > 1 && <span>Jarak baris ≈ {result.rowSpacingM.toFixed(1)} m</span>}
+        <span>Side offset dinding ≈ {sideOffsetM.toFixed(1)} m</span>
       </div>
     </div>
   );
 }
 
-function PersonFigure({ className, label }: { className: string; label: string }) {
+// ─── Arc sector path helper ───────────────────────────────────────────────────
+function arcSector(cx: number, cy: number, r: number, startDeg: number, endDeg: number) {
+  const toR = (d: number) => (d * Math.PI) / 180;
+  const x1 = cx + r * Math.cos(toR(startDeg)), y1 = cy + r * Math.sin(toR(startDeg));
+  const x2 = cx + r * Math.cos(toR(endDeg)),   y2 = cy + r * Math.sin(toR(endDeg));
+  return `M${cx},${cy} L${x1},${y1} A${r},${r},0,0,1,${x2},${y2} Z`;
+}
+
+// ─── SVG Human silhouettes (engineering-proportioned) ────────────────────────
+function StandingFigureSVG({ cx, floorY, sc }: { cx: number; floorY: number; sc: number }) {
+  const H = 1.7 * sc;
+  const hr = Math.max(4.5, H * 0.075);
+  const bw = Math.max(8, H * 0.132);
+  const lw = bw * 0.44;
+  const c = '#334155';
   return (
-    <div className={`sf-person ${className}`}>
-      <span className="sf-person-head" />
-      <span className="sf-person-body" />
-      <span className="sf-person-label">{label}</span>
-    </div>
+    <g fill={c}>
+      <circle cx={cx} cy={floorY - H + hr} r={hr} />
+      <rect x={cx - bw * 0.62} y={floorY - H * 0.80} width={bw * 1.24} height={Math.max(2.5, H * 0.033)} rx="1.2" />
+      <rect x={cx - bw * 0.50} y={floorY - H * 0.77} width={bw} height={H * 0.28} rx="2" />
+      <rect x={cx - bw * 0.48} y={floorY - H * 0.47} width={lw} height={H * 0.47} rx="1.5" />
+      <rect x={cx + bw * 0.48 - lw} y={floorY - H * 0.47} width={lw} height={H * 0.47} rx="1.5" />
+    </g>
+  );
+}
+
+function SeatedFigureSVG({ cx, floorY, sc }: { cx: number; floorY: number; sc: number }) {
+  const sH = 0.44 * sc;
+  const tH = 0.42 * sc;
+  const hr = Math.max(4.5, tH * 0.265);
+  const bw = Math.max(7, tH * 0.38);
+  const thL = bw * 1.55;
+  const lw = bw * 0.40;
+  const c = '#334155';
+  return (
+    <g fill={c}>
+      <circle cx={cx} cy={floorY - sH - tH - hr * 0.7} r={hr} />
+      <rect x={cx - bw * 0.5} y={floorY - sH - tH + hr * 0.2} width={bw} height={tH * 0.82} rx="2" />
+      <rect x={cx - bw * 0.5} y={floorY - sH - lw + 1} width={thL} height={lw} rx="2" />
+      <rect x={cx - bw * 0.5 + thL - lw} y={floorY - sH + 1} width={lw} height={sH * 0.88} rx="1.5" />
+    </g>
   );
 }
 
 function SideViewInstallation({ data, result }: { data: WizardData; result: AdvisoryResult }) {
-  const ceilingHeight = Math.max(data.ceilingHeightM, 2.2);
-  const speakerTop = Math.max(10, Math.min(76, 100 - (result.mountHeightM / ceilingHeight) * 100));
-  const earTop = Math.max(24, Math.min(88, 100 - (result.listenerHeightM / ceilingHeight) * 100));
-  const throwDistance = result.rowCount > 1 ? result.rowSpacingM : data.roomLengthM * 0.65;
-  const tiltAngle = result.mountTiltDeg >= 90 ? 0 : Math.max(10, Math.min(22, result.mountTiltDeg));
+  const W = 338, H = 236;
+  const pL = 52, pR = 14, pT = 22, pB = 26;
+  const drawW = W - pL - pR;
+  const drawH = H - pT - pB;
+
+  const cH = Math.max(data.ceilingHeightM, 2.2);
+  const throwM = Math.max(result.rowCount > 1 ? result.rowSpacingM : data.roomLengthM * 0.65, 3.0);
+
+  const scY = drawH / cH;
+
+  const floorY = pT + drawH;
+  const ceilY = pT;
+  const spkX = pL;
+  const spkY = floorY - result.mountHeightM * scY;
+  const earY = floorY - result.listenerHeightM * scY;
+
+  // Speaker tilt: degrees below horizontal (0=horizontal, 90=straight down)
+  const tiltDeg = result.mountTiltDeg < 90 ? Math.max(5, result.mountTiltDeg) : 45;
+  const tiltRad = (tiltDeg * Math.PI) / 180;
+
+  // Coverage ±45° = 90° total (standard wall/column speaker dispersion)
+  const halfCone = (45 * Math.PI) / 180;
+  const upperRad = tiltRad - halfCone;
+  const lowerRad = tiltRad + halfCone;
+
+  // Clip ray from speaker face to first room boundary hit
+  const clipRay = (rad: number): [number, number] => {
+    const dx = Math.cos(rad), dy = Math.sin(rad);
+    let t = 9999;
+    if (dy > 0.001)  t = Math.min(t, (floorY - spkY) / dy);
+    if (dy < -0.001) t = Math.min(t, (ceilY  - spkY) / dy);
+    if (dx > 0.001)  t = Math.min(t, (pL + drawW - spkX) / dx);
+    return [spkX + dx * Math.max(0, t), spkY + dy * Math.max(0, t)];
+  };
+
+  const [upX, upY] = clipRay(upperRad);
+  const [loX, loY] = clipRay(lowerRad);
+
+  const boxW = 9, boxH = 16;
+  const seatX = pL + drawW * 0.40;
+  const standX = pL + drawW * 0.70;
+  const gId = 'sideBeam', clipId = 'sideClip';
 
   return (
     <div className="sf-sim-card">
       <div className="sf-sim-card-head">
         <div>
           <h4>Side view installation</h4>
-          <p>Box speaker dibuat menunduk ke area dengar, dengan figur duduk dan berdiri sebagai referensi tinggi telinga.</p>
+          <p>Cone suara berangkat tepat dari muka speaker, ±45° dari sumbu tilt. Referensi telinga duduk dan berdiri.</p>
         </div>
         <span>{result.mountHeightM.toFixed(1)} m</span>
       </div>
-      <div className="sf-sideview-canvas">
-        <div className="sf-ceiling-line">plafon {ceilingHeight.toFixed(1)} m</div>
-        <div className="sf-floor-line">lantai</div>
-        <div className="sf-ear-line" style={{ top: `${earTop}%` }}>ear reference approx. {result.listenerHeightM.toFixed(1)} m</div>
-        <div className="sf-height-dim sf-height-ceiling"><span>{ceilingHeight.toFixed(1)} m</span></div>
-        <div className="sf-height-dim sf-height-speaker" style={{ top: `${speakerTop}%` }}><span>{result.mountHeightM.toFixed(1)} m</span></div>
-        <div
-          className="sf-speaker-box-side"
-          style={{
-            top: `${speakerTop}%`,
-            '--tilt-angle': `${tiltAngle}deg`,
-          } as React.CSSProperties & Record<string, string>}
-        >
-          <span className="sf-speaker-face" />
-          <span className="sf-speaker-label">speaker box</span>
-        </div>
-        <div
-          className="sf-throw-beam"
-          style={{
-            top: `${speakerTop + 12}%`,
-            '--beam-tilt': `${Math.max(4, Math.min(12, tiltAngle * 0.45))}deg`,
-          } as React.CSSProperties & Record<string, string>}
-        />
-        <PersonFigure className="is-seated" label="duduk" />
-        <PersonFigure className="is-standing" label="berdiri" />
+
+      <div style={{ padding: '0.5rem 0.75rem 0.25rem' }}>
+        <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ maxWidth: W, display: 'block' }}>
+          <defs>
+            <linearGradient id={gId} x1="0%" y1="50%" x2="100%" y2="50%">
+              <stop offset="0%"   stopColor="#10b981" stopOpacity="0.65" />
+              <stop offset="38%"  stopColor="#10b981" stopOpacity="0.28" />
+              <stop offset="72%"  stopColor="#10b981" stopOpacity="0.09" />
+              <stop offset="100%" stopColor="#10b981" stopOpacity="0" />
+            </linearGradient>
+            <clipPath id={clipId}>
+              <rect x={pL} y={ceilY} width={drawW} height={drawH + 1} />
+            </clipPath>
+          </defs>
+
+          {/* Room background */}
+          <rect x={pL} y={ceilY} width={drawW} height={drawH} fill="#f0fdf4" />
+
+          {/* Horizontal meter grid */}
+          {Array.from({ length: Math.ceil(cH) }, (_, i) => i + 1).map(i => (
+            <line key={`hg${i}`} x1={pL} y1={floorY - i * scY} x2={pL + drawW} y2={floorY - i * scY}
+              stroke="#e2e8f0" strokeWidth="0.8" strokeDasharray="4 4" />
+          ))}
+
+          {/* ── Sound cone — apex exactly at speaker face ─────────────────── */}
+          <polygon
+            points={`${spkX},${spkY} ${upX},${upY} ${loX},${loY}`}
+            fill={`url(#${gId})`}
+            clipPath={`url(#${clipId})`}
+          />
+
+          {/* ── Left wall ────────────────────────────────────────────────────── */}
+          <rect x={pL - 8} y={ceilY} width={8} height={drawH} fill="#e2e8f0" />
+          <line x1={pL} y1={ceilY} x2={pL} y2={floorY} stroke="#94a3b8" strokeWidth="1.5" />
+
+          {/* ── Ceiling ──────────────────────────────────────────────────────── */}
+          <line x1={pL - 8} y1={ceilY} x2={pL + drawW} y2={ceilY} stroke="#94a3b8" strokeWidth="2.5" />
+          <text x={pL + drawW - 3} y={ceilY + 12} textAnchor="end" fill="#94a3b8" fontSize="9" fontWeight="700">plafon {cH.toFixed(1)} m</text>
+
+          {/* ── Floor ────────────────────────────────────────────────────────── */}
+          <line x1={pL - 8} y1={floorY} x2={pL + drawW} y2={floorY} stroke="#475569" strokeWidth="2.5" />
+          {Array.from({ length: 8 }, (_, i) => (
+            <line key={`fh${i}`} x1={pL + i * 36} y1={floorY} x2={pL + i * 36 - 10} y2={floorY + 8}
+              stroke="#94a3b8" strokeWidth="1" />
+          ))}
+          <text x={pL + 4} y={floorY + 16} fill="#475569" fontSize="9" fontWeight="700">lantai</text>
+
+          {/* ── Ear reference line ───────────────────────────────────────────── */}
+          <line x1={pL} y1={earY} x2={pL + drawW} y2={earY} stroke="#16a34a" strokeWidth="1.5" strokeDasharray="6 3" />
+          <text x={pL + 5} y={earY - 4} fill="#15803d" fontSize="9" fontWeight="800">ear ≈ {result.listenerHeightM.toFixed(1)} m</text>
+
+          {/* ── Height dimension: mount height ───────────────────────────────── */}
+          <line x1={pL - 20} y1={spkY} x2={pL - 20} y2={floorY} stroke="#2563eb" strokeWidth="1.5" />
+          <line x1={pL - 25} y1={spkY}  x2={pL - 15} y2={spkY}  stroke="#2563eb" strokeWidth="1.5" />
+          <line x1={pL - 25} y1={floorY} x2={pL - 15} y2={floorY} stroke="#2563eb" strokeWidth="1.5" />
+          <text x={pL - 31} y={(spkY + floorY) / 2} textAnchor="middle" fill="#1d4ed8" fontSize="9" fontWeight="800"
+            transform={`rotate(-90,${pL - 31},${(spkY + floorY) / 2})`}>{result.mountHeightM.toFixed(1)} m</text>
+
+          {/* ── Speaker height label (right side) ───────────────────────────── */}
+          <text x={pL + drawW - 3} y={spkY - 4} textAnchor="end" fill="#1d4ed8" fontSize="9" fontWeight="700">{result.mountHeightM.toFixed(1)} m</text>
+
+          {/* ── Speaker box (tilted rectangle, apex = speaker face) ──────────── */}
+          <g transform={`translate(${spkX},${spkY}) rotate(${tiltDeg})`}>
+            <rect x={-boxW / 2} y={-boxH / 2} width={boxW} height={boxH} rx="1.5" fill="#1e40af" />
+            <rect x={boxW / 2 - 3.5} y={-boxH / 2 + 1} width={3.5} height={boxH - 2} rx="1" fill="#3b82f6" />
+            <circle cx={boxW / 2 - 1.8} cy={0} r={2.2} fill="#93c5fd" />
+          </g>
+          <text x={spkX + 14} y={spkY - 10} fill="#1e40af" fontSize="8.5" fontWeight="800">speaker box</text>
+          <text x={spkX + 14} y={spkY + 5}  fill="#1e40af" fontSize="8"   fontWeight="600">↓{tiltDeg}°</text>
+
+          {/* ── Tilt arc indicator ───────────────────────────────────────────── */}
+          {tiltDeg > 5 && (() => {
+            const r = 26;
+            return (
+              <path
+                d={`M ${spkX + r} ${spkY} A ${r} ${r} 0 0 1 ${spkX + r * Math.cos(tiltRad)} ${spkY + r * Math.sin(tiltRad)}`}
+                fill="none" stroke="#f59e0b" strokeWidth="1.5" opacity="0.85"
+              />
+            );
+          })()}
+
+          {/* ── Human figures ────────────────────────────────────────────────── */}
+          <StandingFigureSVG cx={standX} floorY={floorY} sc={scY} />
+          <text x={standX} y={floorY + 14} textAnchor="middle" fill="#475569" fontSize="9" fontWeight="700">berdiri</text>
+
+          <SeatedFigureSVG cx={seatX} floorY={floorY} sc={scY} />
+          <text x={seatX} y={floorY + 14} textAnchor="middle" fill="#475569" fontSize="9" fontWeight="700">duduk</text>
+        </svg>
       </div>
+
       <div className="sf-sim-facts">
-        <span>Tilt approx. {result.mountTiltDeg < 90 ? `${result.mountTiltDeg} deg down` : 'ceiling down'}</span>
-        <span>Throw approx. {Math.max(throwDistance, 1.5).toFixed(1)} m</span>
-        <span>Speaker height considers seated, standing, and floor listener zones</span>
+        <span>Tilt ≈ {result.mountTiltDeg < 90 ? `${result.mountTiltDeg}° ke bawah` : 'ceiling down'}</span>
+        <span>Throw zone ≈ {throwM.toFixed(1)} m</span>
+        <span>Cone ±45° dari sumbu tilt (90° total coverage)</span>
       </div>
     </div>
   );
